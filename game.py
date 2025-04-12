@@ -163,11 +163,11 @@ while True:
 
     # Health bars & profiles
     screen.blit(profile1, (20, HEIGHT - 80))
-    player1.draw_health(screen, 90, HEIGHT - 60, "imgs/bagette.png")
+    player1.draw_health(screen, 90, HEIGHT - 60, "imgs/healthbar/bread.png")
 
 
     screen.blit(profile2, (WIDTH - 80, HEIGHT - 80))
-    player2.draw_health(screen, WIDTH - 290, HEIGHT - 60, "imgs/sprinkle_jar.png")
+    player2.draw_health(screen, WIDTH - 290, HEIGHT - 60, "imgs/healthbar/donut.png")
 
     # Game clock
     elapsed_seconds = int(time.time() - start_time)
