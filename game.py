@@ -39,7 +39,7 @@ def load_frames(path):
         for i in range(10)
     ]
 
-bread_frames = load_frames("imgs/bread_bear_spritesheet.png")
+bread_frames = load_frames("imgs/angry_bear_spritesheet.png")
 donut_frames = load_frames("imgs/donut_bear_spritesheet.png")
 
 # Player class
