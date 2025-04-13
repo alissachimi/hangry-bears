@@ -1,4 +1,4 @@
-import pygame
+import pygame # type: ignore
 import sys
 import time
 from conveyor_belt import PowerUp, ConveyorObject
@@ -83,6 +83,9 @@ player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "imgs/healthb
 # List of powerups
 powerups = [Powerup(300, GROUND_Y, "cherry"), Powerup(600, GROUND_Y, "blueberry")]
 
+player1.set_opponents([player2])
+player2.set_opponents([player1])
+
 # Game loop
 while True:
     clock.tick(60)
@@ -156,7 +159,17 @@ while True:
     # Remove off-screen objects
     power_ups = [p for p in power_up_list if not p.is_off_screen(WIDTH)]
 
-        # --- In your main loop ---
+
+    # Draw players
+    player1.draw(screen)
+    player2.draw(screen)
+
+    # ensures they are drawn on top of players
+    for projectile in player1.projectiles:
+        projectile.draw(screen)
+    for projectile in player2.projectiles:
+        projectile.draw(screen)
+
     for powerup in list(powerups):  # Iterate over a copy of the list
         powerup.check_collision(player1)
         powerup.check_collision(player2)
@@ -164,17 +177,16 @@ while True:
         if powerup.collected:
             powerups.remove(powerup) # Remove the collected powerup
 
-    # Draw players
-    player1.draw(screen)
-    player2.draw(screen)
-
     # Health bars & profiles
     screen.blit(profile1, (20, HEIGHT - 80))
     screen.blit(profile2, (WIDTH - 80, HEIGHT - 80))
     player1.draw_health(screen, 90, HEIGHT - 60)
     player2.draw_health(screen, WIDTH - 290, HEIGHT - 60)
-    player1.draw_powerup_timer(screen, 90, HEIGHT - 90)
-    player2.draw_powerup_timer(screen, WIDTH - 290, HEIGHT - 90)
+
+    # Draw power-ups under the health bars, specifying the player
+    player1.draw_powerup(screen, 90, HEIGHT - 30, is_player1=True)
+    player2.draw_powerup(screen, WIDTH - 90, HEIGHT - 30, is_player1=False)
+
 
     # Game clock
     elapsed_seconds = int(time.time() - start_time)

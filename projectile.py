@@ -1,4 +1,4 @@
-import pygame
+import pygame # type: ignore
 
 class Projectile:
     def __init__(self, x, y, direction, image_path, damage, speed=6):
