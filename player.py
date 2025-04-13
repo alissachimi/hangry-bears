@@ -94,6 +94,11 @@ class Player:
         self.health -= amount
         self.flash_timer = 10
         self.damage_cooldown = 30 
+    
+    def inc_health(self, amount):
+        # check for full health
+        if self.health < 100:
+            self.health += amount
 
     def update(self, keys, key_left, key_right, key_jump, key_attack, opponent):
         self.tick += 1
@@ -356,3 +361,14 @@ class Player:
         if powerup == "blueberry":
             self.powerup_timer = self.powerup_duration
 
+    # for pretzels and other game objects
+    def pickup_obj(self, powerup):
+        self.powerup=powerup
+        
+        if (powerup == "pretzel"):
+            # increment health by 1/2 icon
+            self.inc_health(10)
+
+            # update health bar
+
+            

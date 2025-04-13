@@ -27,7 +27,12 @@ class Powerup:
     def check_collision(self, player):
         if not self.collected and self.rect.colliderect(player.get_hitbox()):
             self.collected = True
-            player.pickup_powerup(self.type)
+
+            if (self.type == "blueberry" or self.type == "cherry"):
+                player.pickup_powerup(self.type)
+            else:
+                player.pickup_obj(self.type)
+            
             player.flash_timer = self.flash_duration
             player.flash_mode = "rainbow"
 
