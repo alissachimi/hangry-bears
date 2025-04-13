@@ -13,6 +13,29 @@ import socket
 import threading
 import pickle
 import time
+from moviepy.editor import VideoFileClip
+
+play_intro_video = False
+
+def play_video(video_path):
+    clip = VideoFileClip(video_path)
+
+    # Resize the clip to match your screen size
+    clip = clip.resize((WIDTH, HEIGHT))
+
+    for frame in clip.iter_frames(fps=clip.fps, dtype="uint8"):
+        # Convert frame to pygame surface
+        frame_surface = pygame.surfarray.make_surface(frame.swapaxes(0, 1))
+        screen.blit(frame_surface, (0, 0))
+        pygame.display.update()
+        clock.tick(clip.fps)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+    clip.close()
 
 # === CONFIG ===
 SERVER_HOST = '0.0.0.0'
@@ -152,7 +175,6 @@ def run_server_lobby_screen(events):
     play_button.draw(screen)
 
     if play_button.is_clicked(events):
-        current_screen = "server_gameplay"
         if client_conn:
             try:
                 command = b"CMD:SWITCH_TO_GAMEPLAY\n"
@@ -160,6 +182,9 @@ def run_server_lobby_screen(events):
                 client_conn.sendall(length + command)
             except:
                 print("Failed to send mode switch to client.")
+        play_video("imgs/main.mp4")
+        current_screen = "server_gameplay"
+            
 
 def run_winner_screen(events):
     global current_screen, winner_player_number
@@ -320,9 +345,9 @@ def initialize_client():
                 if message.startswith(b"CMD:"):
                     command = message[4:].decode().strip()
                     if command == "SWITCH_TO_GAMEPLAY":
-                        global current_screen
-                        current_screen = "client_gameplay"
-                        print("Switching to client gameplay!")
+                        global play_intro_video
+                        play_intro_video = True
+                        print("Client received command: play intro video!")
                     elif command == "PLAYER1_WINS":
                         winner_player_number = 1
                         current_screen = "winner"
@@ -668,6 +693,12 @@ def run_server_gameplay_loop(events):
 
 while running:
     events = pygame.event.get()
+
+    if play_intro_video:
+        play_video("imgs/main.mp4")
+        play_intro_video = False
+        current_screen = "client_gameplay"
+
     for event in events:
         if event.type == pygame.QUIT:
             running = False
@@ -704,7 +735,6 @@ while running:
         run_client_gameplay_loop(events)
     elif current_screen == "winner":
         run_winner_screen(events)
-
 
     pygame.display.update()
     clock.tick(60)
