@@ -1,5 +1,6 @@
 import pygame # type: ignore
 import random
+import sound
 
 class Powerup:
     def __init__(self, x, y, type):
@@ -27,6 +28,7 @@ class Powerup:
     def check_collision(self, player):
         if not self.collected and self.rect.colliderect(player.get_hitbox()):
             self.collected = True
+            pygame.mixer.Sound("sounds/Rise01.wav")
 
             if (self.type == "blueberry" or self.type == "cherry"):
                 player.pickup_powerup(self.type)
