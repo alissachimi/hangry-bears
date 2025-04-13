@@ -2,6 +2,7 @@ import pygame
 import sys
 import time
 from player import Player, WIDTH, HEIGHT, GROUND_Y
+from conveyor_belt import PowerUp, ConveyorObject
 
 # Initialize Pygame
 pygame.init()
@@ -31,6 +32,31 @@ tile_height = conveyor_belt.get_height()
 conveyor_belt = pygame.transform.scale(conveyor_belt, (tile_width, tile_height))
 scroll_x = 0
 
+# Setup for power up scroll on conveyor belt
+ConveyorObject.ground_y = GROUND_Y - stage.get_height() + offset
+ConveyorObject.conveyor_height = conveyor_belt.get_height()
+ConveyorObject.scroll_speed = 1
+PowerUp.scroll_speed = 1  # Try + or - depending on scroll direction
+
+# Create list of power ups
+power_up_list = []
+
+# Load in power up images
+blueberry_img = pygame.image.load("imgs/powerups/blueberry.png").convert_alpha()
+cherry_img = pygame.image.load("imgs/powerups/cherries.png").convert_alpha()
+
+# Scale images
+power_up_size = (50, 50)
+blueberry_img = pygame.transform.scale(blueberry_img, power_up_size)
+cherry_img = pygame.transform.scale(cherry_img, power_up_size)
+
+# Create power up objects
+blueberry = PowerUp(image=blueberry_img, start_x=-100)
+cherry = PowerUp(image=cherry_img, start_x=200)
+
+# Add objects to power up list
+power_up_list.append(blueberry)
+power_up_list.append(cherry)
 
 # Load profile pictures
 profile1 = pygame.image.load("imgs/bread_bear_profile.png").convert_alpha()
@@ -106,6 +132,15 @@ while True:
     screen.blit(conveyor_belt, (scroll_x, belt_y_axis))
     # + for left, - for right
     screen.blit(conveyor_belt, (scroll_x - conveyor_belt.get_width(), belt_y_axis))
+
+    # Generate power ups on conveyor belt
+    for obj in power_up_list:
+        obj.update()
+        obj.draw(screen)
+        print(f"Blueberry position: ({blueberry.x}, {blueberry.y})")
+
+    # Remove off-screen objects
+    power_ups = [p for p in power_up_list if not p.is_off_screen(WIDTH)]
 
 
     # Draw players
