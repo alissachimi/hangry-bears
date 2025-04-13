@@ -12,8 +12,65 @@ pygame.display.set_caption("Hangry Bears")
 clock = pygame.time.Clock()
 start_time = time.time()
 
-# Font for clock
 font = pygame.font.SysFont("Arial", 28)
+button_font = pygame.font.Font("fonts/silkscreen.ttf", 32)
+
+arrow_cursor = pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW)
+hand_cursor = pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND)
+
+def title_screen():
+    # Load your title screen image and scale it to match your game window dimensions
+    title_bg = pygame.image.load("imgs/title-screen.png").convert()
+    title_bg = pygame.transform.scale(title_bg, (WIDTH, HEIGHT))
+    
+    # Define the button attributes
+    button_text = button_font.render("Start Game", True, (255, 255, 255))
+    button_width = 250
+    button_height = 60
+    # Center the button horizontally; adjust vertical placement as needed
+    button_x = (WIDTH - button_width) // 2
+    button_y = HEIGHT - 340
+    button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
+    
+    normal_color = (235, 153, 176)   # Normal state
+    hover_color  = (223, 130, 155)   # Hover state
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            # Check for mouse click event on the button
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                if button_rect.collidepoint(mouse_pos):
+                    return  # Exit the title screen when the button is clicked
+
+        # Determine button state by checking if the mouse hovers over the button
+        mouse_pos = pygame.mouse.get_pos()
+        if button_rect.collidepoint(mouse_pos):
+            button_color = hover_color
+            pygame.mouse.set_cursor(hand_cursor)
+        else:
+            button_color = normal_color
+            pygame.mouse.set_cursor(arrow_cursor)
+
+        # Draw the title background and button with dynamic colors
+        screen.blit(title_bg, (0, 0))
+        pygame.draw.rect(screen, button_color, button_rect)  # Button fill based on state
+        pygame.draw.rect(screen, (255, 255, 255), button_rect, 2)  # Button border
+
+        # Center the button text on the button
+        text_x = button_x + (button_width - button_text.get_width()) // 2
+        text_y = button_y + (button_height - button_text.get_height()) // 2
+        screen.blit(button_text, (text_x, text_y))
+        
+        pygame.display.update()
+        clock.tick(60)
+
+# Run the title screen first
+title_screen()
+pygame.mouse.set_cursor(arrow_cursor)
 
 # Load profile pictures
 profile1 = pygame.image.load("imgs/bread_bear_profile.png").convert_alpha()

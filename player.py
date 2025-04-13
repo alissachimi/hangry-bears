@@ -1,7 +1,7 @@
 import pygame
 from projectile import Projectile
 
-WIDTH, HEIGHT = 800, 600
+WIDTH, HEIGHT = 1000, 600
 GROUND_Y = HEIGHT - 250
 
 # Player class
