@@ -448,6 +448,8 @@ hangry_donut_frames = load_frames("imgs/spritesheets/angry_donut_bear_spriteshee
 # Create players
 player1 = Player(200, GROUND_Y, bread_frames, hangry_bread_frames, "imgs/healthbar/bread.png", "bread", "right")
 player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "imgs/healthbar/donut.png", "donut", "left", weapon="gun", projectile_image="imgs/sprinkle_ammo.png")
+player1.set_opponents(player2)
+player2.set_opponents(player1)
 
 powerups = [Powerup(300, GROUND_Y, "cherry"), Powerup(600, GROUND_Y, "blueberry")]
 
@@ -578,8 +580,12 @@ def run_server_gameplay_loop(events):
         powerups.append(new_powerup)
 
     # Update power-up positions
-    for obj in powerups:
-        obj.update()
+    for powerup in list(powerups):
+        powerup.check_collision(player1)
+        powerup.check_collision(player2)
+        powerup.update()
+        if powerup.collected:
+            powerups.remove(powerup)
 
     # Update platforms
     for platform in platforms:
