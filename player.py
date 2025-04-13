@@ -1,4 +1,4 @@
-import pygame
+import pygame # type: ignore
 from projectile import Projectile
 from cherry_bomb import CherryProjectile
 
@@ -41,6 +41,7 @@ class Player:
         self.normal_frames = frames
         self.flash_timer = 0 
         self.flash_mode = None  # can be 'rainbow' or None
+        self.opponents = None
         
 
         self.y_vel = 0
@@ -67,6 +68,9 @@ class Player:
         self.projectile_image = projectile_image  # Change to your projectile image path
         self.powerup_timer = 0
         self.powerup_duration = 300  # 5 seconds at 60 FPS
+
+    def set_opponents(self, opponents):
+        self.opponents = opponents
 
     def get_hitbox(self):
         width = self.image.get_width()
@@ -100,17 +104,22 @@ class Player:
 
         # Update projectiles
         for projectile in self.projectiles[:]:
-            projectile.update()
             if hasattr(projectile, 'collides_with'):
+
+                projectile.update()
+
                 if projectile.collides_with(opponent.get_hitbox()):
                     opponent.take_damage(projectile.damage)
                     self.projectiles.remove(projectile)
             else:
-                if projectile.exploded:
+                possible_targets = list(self.opponents)
+                possible_targets.append(self) 
+                projectile.update(possible_targets)
+                if projectile.exploded and not projectile.show_explosion:
                     self.projectiles.remove(projectile)
 
 
-        self.projectiles = [p for p in self.projectiles if ((hasattr(p, 'collides_with') and not p.off_screen(WIDTH)) or not p.exploded)]
+        self.projectiles = [p for p in self.projectiles if ((hasattr(p, 'collides_with') and not p.off_screen(WIDTH)) or ((hasattr(p, 'exploded')) and not p.exploded) or ((hasattr(p, 'show_explosion')) and p.show_explosion))]
 
         if self.damage_cooldown > 0:
             self.damage_cooldown -= 1
@@ -180,7 +189,10 @@ class Player:
     def attack(self):
         if self.weapon == "gun" and "cherry" in self.projectile_image:
             # Drop cherry ammo on ground
-            dropped_projectile = CherryProjectile(self.x, self.y)
+            if self.direction=="left":
+                dropped_projectile = CherryProjectile(self.x -70, self.y +100)
+            else:
+                dropped_projectile = CherryProjectile(self.x +150, self.y +100)
             self.projectiles.append(dropped_projectile)
 
             # Revert player state
@@ -240,9 +252,6 @@ class Player:
         else:
             self.flash_mode = None
             surface.blit(self.image, (self.x, self.y))
-
-        for projectile in self.projectiles:
-            projectile.draw(surface)
 
     def draw_health(self, surface, x, y):
         hearts = 5

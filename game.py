@@ -1,4 +1,4 @@
-import pygame
+import pygame # type: ignore
 import sys
 import time
 from player import Player, WIDTH, HEIGHT, GROUND_Y, load_frames
@@ -51,6 +51,9 @@ player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "imgs/healthb
 # List of powerups
 powerups = [Powerup(300, GROUND_Y, "cherry"), Powerup(600, GROUND_Y, "blueberry")]
 
+player1.set_opponents([player2])
+player2.set_opponents([player1])
+
 # Game loop
 while True:
     clock.tick(60)
@@ -96,17 +99,22 @@ while True:
     screen.blit(conveyor_belt, (scroll_x - conveyor_belt.get_width(), belt_y_axis))
 
 
-        # --- In your main loop ---
+    # Draw players
+    player1.draw(screen)
+    player2.draw(screen)
+
+    # ensures they are drawn on top of players
+    for projectile in player1.projectiles:
+        projectile.draw(screen)
+    for projectile in player2.projectiles:
+        projectile.draw(screen)
+
     for powerup in list(powerups):  # Iterate over a copy of the list
         powerup.check_collision(player1)
         powerup.check_collision(player2)
         powerup.draw(screen)
         if powerup.collected:
             powerups.remove(powerup) # Remove the collected powerup
-
-    # Draw players
-    player1.draw(screen)
-    player2.draw(screen)
 
     # Health bars & profiles
     screen.blit(profile1, (20, HEIGHT - 80))
