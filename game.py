@@ -519,14 +519,6 @@ def draw_gameplay_scene(surface):
     player1.draw_powerup(surface, 90, HEIGHT - 30, is_player1=True)
     player2.draw_powerup(surface, WIDTH - 90, HEIGHT - 30, is_player1=False)
 
-    # Draw timer
-    elapsed_seconds = int(time.time() - start_time)
-    minutes = elapsed_seconds // 60
-    seconds = elapsed_seconds % 60
-    clock_text = font.render(f"{minutes:02}:{seconds:02}", True, (0, 0, 0))
-    clock_rect = clock_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
-    surface.blit(clock_text, clock_rect)
-
 
 def run_client_gameplay_loop(events):
     for event in events:
