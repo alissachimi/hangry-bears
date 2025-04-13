@@ -1,6 +1,7 @@
 import pygame
 import sys
 import time
+from conveyor_belt import PowerUp, ConveyorObject
 from player import Player, WIDTH, HEIGHT, GROUND_Y, load_frames
 from powerup import Powerup
 
@@ -43,10 +44,10 @@ power_up_list = []
 
 # Load in power up images
 blueberry_img = pygame.image.load("imgs/powerups/blueberry.png").convert_alpha()
-cherry_img = pygame.image.load("imgs/powerups/cherries.png").convert_alpha()
+cherry_img = pygame.image.load("imgs/powerups/cherry.png").convert_alpha()
 
 # Scale images
-power_up_size = (50, 50)
+power_up_size = (40, 40)
 blueberry_img = pygame.transform.scale(blueberry_img, power_up_size)
 cherry_img = pygame.transform.scale(cherry_img, power_up_size)
 
@@ -119,6 +120,15 @@ while True:
     screen.blit(conveyor_belt, (scroll_x, belt_y_axis))
     # + for left, - for right
     screen.blit(conveyor_belt, (scroll_x - conveyor_belt.get_width(), belt_y_axis))
+
+    # Generate power ups on conveyor belt
+    for obj in power_up_list:
+        obj.update()
+        obj.draw(screen)
+        # print(f"Blueberry position: ({blueberry.x}, {blueberry.y})")
+
+    # Remove off-screen objects
+    power_ups = [p for p in power_up_list if not p.is_off_screen(WIDTH)]
 
 
         # --- In your main loop ---

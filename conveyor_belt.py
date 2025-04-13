@@ -16,7 +16,7 @@ class ConveyorObject:
 
 class PowerUp(ConveyorObject):
     def __init__(self, image, start_x=None):
-        power_up_y = 425  #  consistent y-position
+        power_up_y = 435  #  consistent y-position
         super().__init__(image, power_up_y, speed=PowerUp.scroll_speed, start_x=start_x)
 
     # Shared settings
