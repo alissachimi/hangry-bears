@@ -41,7 +41,9 @@ def load_frames(path):
 
 bread_frames = load_frames("imgs/bread_bear_spritesheet.png")
 donut_frames = load_frames("imgs/donut_bear_spritesheet.png")
-hangry_bread_frames = load_frames("imgs/angry_bear_spritesheet.png")
+hangry_bread_frames = load_frames("imgs/angry_bread_bear_spritesheet.png")
+hangry_donut_frames = load_frames("imgs/angry_donut_bear_spritesheet.png")
+
 
 # Player class
 class Player:
@@ -173,7 +175,7 @@ class Player:
 
 # Create players
 player1 = Player(200, GROUND_Y, bread_frames, hangry_bread_frames, "right")
-player2 = Player(500, GROUND_Y, donut_frames, hangry_bread_frames, "left")
+player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "left")
 
 # Game loop
 while True:
@@ -204,6 +206,7 @@ while True:
     screen.blit(profile1, (20, HEIGHT - 80))
     player1.draw_health(screen, 90, HEIGHT - 60, "imgs/healthbar/bread.png")
     player1.enter_hangry_mode()
+    player2.enter_hangry_mode()
 
 
     screen.blit(profile2, (WIDTH - 80, HEIGHT - 80))
