@@ -42,6 +42,7 @@ class Player:
         self.flash_timer = 0 
         self.flash_mode = None  # can be 'rainbow' or None
         self.opponents = None
+        self.powerup=None
         
 
         self.y_vel = 0
@@ -204,6 +205,7 @@ class Player:
 
     def revert_powerup(self):
         self.frames = self.default_frames
+        self.powerup=None
 
         if self.is_hangry:
             self.frames = self.hangry_frames
@@ -275,6 +277,38 @@ class Player:
             fill_rect = pygame.Rect(x, y, fill_width, bar_height)
             pygame.draw.rect(surface, (0, 0, 255), fill_rect)       # blue fill
             pygame.draw.rect(surface, (255, 255, 255), border_rect, 1)  # white border
+    
+    def draw_powerup(self, surface, x, y, is_player1=True):
+            if self.powerup == "cherry":
+                cherry_img = pygame.image.load("imgs/powerups/cherry-ammo.png").convert_alpha()
+                desired_height = 20
+                original_width = cherry_img.get_width()
+                original_height = cherry_img.get_height()
+                aspect_ratio = original_width / original_height
+                new_width = int(desired_height * aspect_ratio)
+                resized_cherry_img = pygame.transform.scale(cherry_img, (new_width, desired_height))
+                surface.blit(resized_cherry_img, (x, y))
+            elif self.powerup == "blueberry":
+                blueberry_img = pygame.image.load("imgs/powerups/blueberry.png").convert_alpha()
+                desired_height = 20
+                original_width = blueberry_img.get_width()
+                original_height = blueberry_img.get_height()
+                aspect_ratio = original_width / original_height
+                new_width = int(desired_height * aspect_ratio)
+                resized_blueberry_img = pygame.transform.scale(blueberry_img, (new_width, desired_height))
+                if is_player1:
+                    surface.blit(resized_blueberry_img, (x, y))
+                    # Draw the timer bar to the right of the blueberry image for player 1
+                    bar_x = x + resized_blueberry_img.get_width() + 5
+                    self.draw_powerup_timer(surface, bar_x, y + (resized_blueberry_img.get_height() // 2) - 3)
+                else:  # For player 2, draw bar then icon
+                    bar_width = 60
+                    bar_height = 6
+                    bar_y = y + (resized_blueberry_img.get_height() // 2) - 3
+                    bar_x = x - bar_width - 25  # Position bar to the left
+                    self.draw_powerup_timer(surface, bar_x, bar_y)
+                    icon_x = x - resized_blueberry_img.get_width() + 10 # Position icon to the left of the bar
+                    surface.blit(resized_blueberry_img, (icon_x, y))
 
 
     def update_mode(self):
@@ -307,6 +341,7 @@ class Player:
     
     # powerup should be cherry or blueberry
     def pickup_powerup(self, powerup):
+        self.powerup=powerup
         if self.is_hangry:
             spritesheet_url=f"imgs/spritesheets/{str(powerup).upper()}_angry_{self.name}_bear_spritesheet.png"
         else:

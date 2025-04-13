@@ -156,8 +156,11 @@ while True:
     screen.blit(profile2, (WIDTH - 80, HEIGHT - 80))
     player1.draw_health(screen, 90, HEIGHT - 60)
     player2.draw_health(screen, WIDTH - 290, HEIGHT - 60)
-    player1.draw_powerup_timer(screen, 90, HEIGHT - 90)
-    player2.draw_powerup_timer(screen, WIDTH - 290, HEIGHT - 90)
+
+    # Draw power-ups under the health bars, specifying the player
+    player1.draw_powerup(screen, 90, HEIGHT - 30, is_player1=True)
+    player2.draw_powerup(screen, WIDTH - 90, HEIGHT - 30, is_player1=False)
+
 
     # Game clock
     elapsed_seconds = int(time.time() - start_time)
