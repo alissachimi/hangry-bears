@@ -21,6 +21,15 @@ desired_height = GROUND_Y  # So it fits exactly up to the ground
 
 # Scale image
 background_img = pygame.transform.scale(stage, (WIDTH, desired_height))
+offset = 160  # adjust as needed
+
+# Load conveyor belt and set up scroll
+conveyor_belt = pygame.image.load("imgs/stages/conveyor-belt.png").convert_alpha()
+belt_y_axis = GROUND_Y - conveyor_belt.get_height() + offset # position above ground
+tile_width = conveyor_belt.get_width()
+tile_height = conveyor_belt.get_height()
+conveyor_belt = pygame.transform.scale(conveyor_belt, (tile_width, tile_height))
+scroll_x = 0
 
 
 # Load profile pictures
@@ -82,10 +91,22 @@ while True:
     screen.fill((240, 240, 240))
     # screen.fill((255,237,204))
 
-    # Calculate Y position so the bottom of the image is displayed above the ground
-    offset = 160  # adjust as needed
+    # Calculate Y position so the bottom of the stage is displayed above the ground
     stage_y_axis = GROUND_Y - stage.get_height() + offset
     screen.blit(stage, (0, stage_y_axis))
+
+    # Move the conveyor left (-=) or right (+=)
+    scroll_x += 1  # adjust speed here
+
+    # Wrap around so it scrolls infinitely (scroll left is -conveyor_belt and <=, scroll right is positive and >=)
+    if scroll_x >= conveyor_belt.get_width():
+        scroll_x = 0
+
+    # Draw two copies to make the scroll seamless
+    screen.blit(conveyor_belt, (scroll_x, belt_y_axis))
+    # + for left, - for right
+    screen.blit(conveyor_belt, (scroll_x - conveyor_belt.get_width(), belt_y_axis))
+
 
     # Draw players
     player1.draw(screen)
