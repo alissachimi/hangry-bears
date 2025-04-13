@@ -85,3 +85,34 @@ class CherryProjectile:
             )
             for i in range(frame_count)
         ]
+
+    def serialize(self):
+        return {
+            "x": self.rect.centerx,
+            "y": self.rect.centery,
+            "timer": self.timer,
+            "blink_count": self.blink_count,
+            "visible": self.visible,
+            "exploded": self.exploded,
+            "explosion_frame": self.explosion_frame,
+            "explosion_tick": self.explosion_tick,
+            "show_explosion": self.show_explosion,
+        }
+        
+    @staticmethod
+    def deserialize(data):
+        obj = CherryProjectile(data["x"], data["y"])
+        obj.timer = data["timer"]
+        obj.blink_count = data["blink_count"]
+        obj.visible = data["visible"]
+        obj.exploded = data["exploded"]
+        obj.explosion_frame = data["explosion_frame"]
+        obj.explosion_tick = data["explosion_tick"]
+        obj.show_explosion = data["show_explosion"]
+
+        # Recalculate explosion rect if exploded
+        if obj.exploded:
+            obj.explosion_rect = obj.explosion_frames[0].get_rect(center=obj.rect.center)
+
+        return obj
+

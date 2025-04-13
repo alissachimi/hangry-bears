@@ -35,8 +35,27 @@ class Powerup:
             
             player.flash_timer = self.flash_duration
             player.flash_mode = "rainbow"
-
+    
     def update(self):
         scroll_speed = 1
-        self.x += scroll_speed 
-        self.rect.x = self.x  # Update rect position to match image
+        self.x += scroll_speed
+        self.rect.x = self.x
+
+    def serialize(self):
+        return {
+            "x": self.x,
+            "y": self.y,
+            "type": self.type,
+            "collected": self.collected
+        }
+    
+    @staticmethod
+    def deserialize(data):
+        powerup = Powerup(data["x"], data["y"], data["type"])
+        powerup.collected = data["collected"]
+        return powerup
+
+    def update_from_data(self, data):
+        self.x = data["x"]
+        self.y = data["y"]
+        self.collected = data["collected"]
