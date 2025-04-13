@@ -16,7 +16,7 @@ start_time = time.time()
 font = pygame.font.SysFont("Arial", 28)
 
 # Load playing stage
-stage = pygame.image.load("imgs/stages/stage3.png").convert()
+stage = pygame.image.load("imgs/stages/wide-stage.png").convert()
 desired_height = GROUND_Y  # So it fits exactly up to the ground
 
 # Scale image
@@ -77,14 +77,15 @@ while True:
 
     player1.update_mode()
     player2.update_mode()
+
     # set background color
     screen.fill((240, 240, 240))
     # screen.fill((255,237,204))
 
     # Calculate Y position so the bottom of the image is displayed above the ground
-    # offset = 160  # adjust as needed
-    # stage_y_axis = GROUND_Y - stage.get_height() + offset
-    # screen.blit(stage, (0, stage_y_axis))
+    offset = 160  # adjust as needed
+    stage_y_axis = GROUND_Y - stage.get_height() + offset
+    screen.blit(stage, (0, stage_y_axis))
 
     # Draw players
     player1.draw(screen)
