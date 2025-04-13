@@ -5,6 +5,7 @@ from conveyor_belt import ConveyorObject
 from player import Player, WIDTH, HEIGHT, GROUND_Y, load_frames
 from powerup import Powerup
 import random
+from plat import Platform
 
 # Initialize Pygame
 pygame.init()
@@ -65,8 +66,13 @@ player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "imgs/healthb
 # powerups = [Powerup(300, GROUND_Y, "cherry"), Powerup(600, GROUND_Y, "blueberry")]
 powerups = []
 
-player1.set_opponents([player2])
-player2.set_opponents([player1])
+platforms = [
+    Platform(100, 300, "imgs/platform.png", width=120, move_range=70, speed=.7),
+    Platform(300, 200, "imgs/platform.png", width=120, move_range=50, speed=.7),
+    Platform(500, 350, "imgs/platform.png", width=120, move_range=100, speed=1),
+    Platform(600, 150, "imgs/platform.png", width=120, move_range=70, speed=.8),
+]
+
 
 # Game loop
 while True:
@@ -154,6 +160,12 @@ while True:
         powerup.update()
         if powerup.collected:
             powerups.remove(powerup) # Remove the collected powerup
+
+    for platform in platforms:
+        platform.update()
+        platform.draw(screen)
+        platform.check_collision(player1)
+        platform.check_collision(player2)
 
     # Health bars & profiles
     screen.blit(profile1, (20, HEIGHT - 80))

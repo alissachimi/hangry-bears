@@ -47,7 +47,7 @@ class Player:
 
         self.y_vel = 0
         self.gravity = 0.5
-        self.jump_strength = -10
+        self.jump_strength = -15
         self.on_ground = True
 
         self.health = 100
