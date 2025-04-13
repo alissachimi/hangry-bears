@@ -57,6 +57,7 @@ class Player:
         self.tick = 0
         self.state = "idle"
         self.attack_timer = 0
+        self.damage_cooldown = 0
 
         self.y_vel = 0
         self.gravity = 0.5
@@ -80,9 +81,19 @@ class Player:
         offset_y = (height - hitbox_height) // 2
 
         return pygame.Rect(self.x + offset_x, self.y + offset_y, hitbox_width, hitbox_height)
+    
+    def check_attack_collision(self, opponent):
+        if opponent.state == "attacking" and self.get_hitbox().colliderect(opponent.get_hitbox()):
+            if self.damage_cooldown == 0:
+                self.health -= 10
+                print(self.health)
+                self.damage_cooldown = 30
 
     def update(self, keys, key_left, key_right, key_jump, key_attack, opponent):
         self.tick += 1
+
+        if self.damage_cooldown > 0:
+            self.damage_cooldown -= 1
 
         if self.state == "attacking":
             frame_duration = 10 if self.is_hangry else 3
@@ -114,12 +125,7 @@ class Player:
         if keys[key_jump] and self.on_ground:
             self.y_vel = self.jump_strength
 
-        future_hitbox = self.get_hitbox().move(dx, 0)
-
-        # If no collision with opponent, move
-        if not future_hitbox.colliderect(opponent.get_hitbox()):
-            self.x += dx
-
+        self.x += dx
         self.y_vel += self.gravity
         self.y += self.y_vel
 
@@ -182,6 +188,9 @@ while True:
     # Update players
     player1.update(keys, pygame.K_LEFT, pygame.K_RIGHT, pygame.K_SPACE, pygame.K_r, player2)
     player2.update(keys, pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_f, player1)
+    player1.check_attack_collision(player2)
+    player2.check_attack_collision(player1)
+
 
 
     screen.fill((240, 240, 240))
