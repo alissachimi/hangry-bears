@@ -1,6 +1,7 @@
 import pygame
 import sys
 import time
+from projectile import Projectile
 
 # Initialize Pygame
 pygame.init()
@@ -47,7 +48,7 @@ hangry_donut_frames = load_frames("imgs/angry_donut_bear_spritesheet.png")
 
 # Player class
 class Player:
-    def __init__(self, x, y, frames, hangry_frames, direction="right"):
+    def __init__(self, x, y, frames, hangry_frames, name, direction="right", weapon=None, projectile_image=None):
         self.x = x
         self.y = y
         self.frames = frames
@@ -59,6 +60,7 @@ class Player:
         self.tick = 0
         self.state = "idle"
         self.attack_timer = 0
+        self.name=name
 
         self.y_vel = 0
         self.gravity = 0.5
@@ -70,6 +72,10 @@ class Player:
         self.stand_frames = {"left": 3, "right": 8}
         self.walk_frames = {"left": [2, 3, 4], "right": [7, 8, 9]}
         self.attack_frames = {"left": [1, 0, 1, 0], "right": [6, 5, 6, 5]}
+
+        self.projectiles = []
+        self.weapon = weapon
+        self.projectile_image = projectile_image  # Change to your projectile image path
 
     def get_hitbox(self):
         width = self.image.get_width()
@@ -86,13 +92,28 @@ class Player:
     def update(self, keys, key_left, key_right, key_jump, key_attack, opponent):
         self.tick += 1
 
+        # Update projectiles
+        for projectile in self.projectiles:
+            projectile.update()
+        self.projectiles = [p for p in self.projectiles if not p.off_screen(WIDTH)]
+
         if self.state == "attacking":
             frame_duration = 10 if self.is_hangry else 3
-            if self.attack_timer < len(self.attack_frames[self.direction]) * frame_duration:
+            attack_frames = self.attack_frames[self.direction]
+            
+            if self.attack_timer < len(attack_frames) * frame_duration:
                 idx = self.attack_timer // frame_duration
-                self.image = self.frames[self.attack_frames[self.direction][idx]]
+                self.image = self.frames[attack_frames[idx]]
                 self.attack_timer += 1
             else:
+                if self.weapon == "gun":
+                    center_y = self.y + self.image.get_height() // 2
+                    if self.direction == "right":
+                        proj_x = self.x + self.image.get_width()
+                    else:
+                        proj_x = self.x
+                    bullet = Projectile(proj_x, center_y, self.direction, self.projectile_image)
+                    self.projectiles.append(bullet)
                 self.state = "idle"
                 self.attack_timer = 0
                 self.image = self.frames[self.stand_frames[self.direction]]
@@ -109,9 +130,6 @@ class Player:
             self.state = "walking"
         else:
             self.state = "idle"
-
-        if keys[key_attack]:
-            self.attack()
 
         if keys[key_jump] and self.on_ground:
             self.y_vel = self.jump_strength
@@ -139,13 +157,17 @@ class Player:
         elif self.state == "idle":
             self.image = self.frames[self.stand_frames[self.direction]]
 
+
     def attack(self):
         if self.state != "attacking":
             self.state = "attacking"
             self.attack_timer = 0
 
+
     def draw(self, surface):
         surface.blit(self.image, (self.x, self.y))
+        for projectile in self.projectiles:
+            projectile.draw(surface)
 
     def draw_health(self, surface, x, y, icon):
         hearts = 5
@@ -166,10 +188,17 @@ class Player:
         self.walk_frames = {"left": [2, 3, 4], "right": [7, 8, 9]}  # or hangry versions
         self.vel = 4  # maybe make him faster?
 
+        # give bread bear new projectile
+        if self.name=="bread":
+            self.projectile_image="imgs\\bagette.png"
+            self.weapon="gun"
+        if self.name=="donut":
+            self.projectile_image="imgs\healthbar\donut.png"
+
 
 # Create players
-player1 = Player(200, GROUND_Y, bread_frames, hangry_bread_frames, "right")
-player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "left")
+player1 = Player(200, GROUND_Y, bread_frames, hangry_bread_frames, "bread", "right")
+player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "donut", "left", weapon="gun", projectile_image="imgs\sprinkle_ammo.png")
 
 # Game loop
 while True:
@@ -180,6 +209,11 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_r:
+                player1.attack()
+            if event.key == pygame.K_f:
+                player2.attack()
 
     # Update players
     player1.update(keys, pygame.K_LEFT, pygame.K_RIGHT, pygame.K_SPACE, pygame.K_r, player2)
