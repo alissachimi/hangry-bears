@@ -17,6 +17,14 @@ start_time = time.time()
 # Font for clock
 font = pygame.font.SysFont("Arial", 28)
 
+# Load playing stage
+stage = pygame.image.load("imgs/stages/stage3.png").convert()
+desired_height = GROUND_Y  # So it fits exactly up to the ground
+
+# Scale image
+background_img = pygame.transform.scale(stage, (WIDTH, desired_height))
+
+
 # Load profile pictures
 profile1 = pygame.image.load("imgs/bread_bear_profile.png").convert_alpha()
 profile2 = pygame.image.load("imgs/donut_bear_profile.png").convert_alpha()
@@ -194,9 +202,14 @@ while True:
     player2.check_attack_collision(player1)
 
 
-
+    # set background color
     screen.fill((240, 240, 240))
-    pygame.draw.rect(screen, (180, 180, 180), (0, GROUND_Y + 40, WIDTH, HEIGHT - GROUND_Y))
+    # screen.fill((255,237,204))
+
+    # Calculate Y position so the bottom of the image is displayed above the ground
+    # offset = 160  # adjust as needed
+    # stage_y_axis = GROUND_Y - stage.get_height() + offset
+    # screen.blit(stage, (0, stage_y_axis))
 
     # Draw players
     player1.draw(screen)
