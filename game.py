@@ -4,6 +4,7 @@ import time
 from conveyor_belt import PowerUp, ConveyorObject
 from player import Player, WIDTH, HEIGHT, GROUND_Y, load_frames
 from powerup import Powerup
+import random
 
 # Initialize Pygame
 pygame.init()
@@ -55,9 +56,14 @@ cherry_img = pygame.transform.scale(cherry_img, power_up_size)
 blueberry = PowerUp(image=blueberry_img, start_x=-100)
 cherry = PowerUp(image=cherry_img, start_x=200)
 
-# Add objects to power up list
-power_up_list.append(blueberry)
-power_up_list.append(cherry)
+# Add objects to power up list at start
+# power_up_list.append(blueberry)
+# power_up_list.append(cherry)
+
+# Spawn timing config for power ups
+SPAWN_POWERUP_INTERVAL = 7000  # milliseconds (every 7 seconds)
+last_spawn_time = pygame.time.get_ticks()
+# print("initial last_spawn_time: ", last_spawn_time)
 
 # Load profile pictures
 profile1 = pygame.image.load("imgs/bread_bear_profile.png").convert_alpha()
@@ -121,7 +127,27 @@ while True:
     # + for left, - for right
     screen.blit(conveyor_belt, (scroll_x - conveyor_belt.get_width(), belt_y_axis))
 
-    # Generate power ups on conveyor belt
+    # Generate power ups on a timer
+    current_time = pygame.time.get_ticks()
+
+    if current_time - last_spawn_time > SPAWN_POWERUP_INTERVAL:
+        last_spawn_time = current_time
+        # print("in game loop, updated last_spawn_time: ", last_spawn_time)
+
+        # Randomly spawn new power-up (0=blueberry, 1=cherry)
+        rand = random.randint(0, 1)
+        if (rand == 0):
+            # generate blueberry
+            new_powerup = PowerUp(image=blueberry_img, start_x=-50)
+        if (rand == 1):
+            # generate cherry
+            new_powerup = PowerUp(image=cherry_img, start_x=-50)
+
+        power_up_list.append(new_powerup)
+        print(power_up_list)
+        # print(f"New power up position: ({new_powerup.x}, {new_powerup.y})")
+
+    # Display power ups on conveyor belt
     for obj in power_up_list:
         obj.update()
         obj.draw(screen)
@@ -129,7 +155,6 @@ while True:
 
     # Remove off-screen objects
     power_ups = [p for p in power_up_list if not p.is_off_screen(WIDTH)]
-
 
         # --- In your main loop ---
     for powerup in list(powerups):  # Iterate over a copy of the list
