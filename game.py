@@ -3,15 +3,17 @@ import sys
 import time
 from player import Player, WIDTH, HEIGHT, GROUND_Y
 from button import Button
+from projectile import Projectile
 import socket
 import threading
+import pickle
 import time
 
 # === CONFIG ===
 SERVER_HOST = '0.0.0.0'
 SERVER_PORT = 10141
 #IP = "192.168.182.18"
-IP = "10.194.42.91"
+IP = "10.194.41.9"
 client_input = None
 client_conn = None
 
@@ -132,7 +134,9 @@ def run_server_lobby_screen(events):
         current_screen = "server_gameplay"
         if client_conn:
             try:
-                client_conn.sendall(b"SWITCH_TO_GAMEPLAY\n")
+                command = b"CMD:SWITCH_TO_GAMEPLAY\n"
+                length = len(command).to_bytes(4, 'big')
+                client_conn.sendall(length + command)
             except:
                 print("Failed to send mode switch to client.")
 
@@ -158,6 +162,16 @@ def handle_client(conn, addr):
             print("Connection lost")
             break
     conn.close()
+
+# Helper function to read in data
+def recv_exact(sock, num_bytes):
+    data = b''
+    while len(data) < num_bytes:
+        packet = sock.recv(num_bytes - len(data))
+        if not packet:
+            return None
+        data += packet
+    return data
 
 def initialize_server():
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -203,33 +217,65 @@ def initialize_client():
                 client_sock.sendall(b"ATTACK\n")
             time.sleep(0.02)  # ~50 times per second
 
-    threading.Thread(target=send_input, daemon=True).start()
-
-    # Thread to receive game state from server
     def receive_data():
         while True:
             try:
-                data = client_sock.recv(1024)
-                if not data:
-                    print("Disconnected from server")
+                # Step 1: read the length prefix (4 bytes)
+                length_data = recv_exact(client_sock, 4)
+                if not length_data:
+                    print("Disconnected")
                     break
 
-                decoded_data = data.decode().strip()
+                message_length = int.from_bytes(length_data, 'big')
 
-                if decoded_data == "SWITCH_TO_GAMEPLAY":
-                    global current_screen
-                    current_screen = "client_gameplay"
-                    print("Switching to client gameplay!")
+                # Step 2: read the actual message
+                message = recv_exact(client_sock, message_length)
+                if not message:
+                    print("Disconnected during message")
+                    break
+
+                # Step 3: process message
+                if message.startswith(b"CMD:"):
+                    command = message[4:].decode().strip()
+                    if command == "SWITCH_TO_GAMEPLAY":
+                        global current_screen
+                        current_screen = "client_gameplay"
+                        print("Switching to client gameplay!")
+
+                elif message.startswith(b"DATA:"):
+                    try:
+                        game_state = pickle.loads(message[5:])  # skip "DATA:"
+                        if isinstance(game_state, dict):
+                            player1.deserialize(game_state["player1"])
+                            player2.deserialize(game_state["player2"])
+                            player1.refresh_sprite()
+                            player2.refresh_sprite()
+
+                            player1.projectiles.clear()
+                            player2.projectiles.clear()
+
+                            for proj_data in game_state.get("projectiles", []):
+                                if "bread" in proj_data["image_path"]:
+                                    player1.projectiles.append(Projectile.create_projectile_from_data(proj_data))
+                                else:
+                                    player2.projectiles.append(Projectile.create_projectile_from_data(proj_data))
+                        else:
+                            print("Received non-dictionary data:", game_state)
+                    except Exception as e:
+                        print("Error decoding pickle:", e)
+
                 else:
-                    # Assume game state update
-                    parse_game_state(decoded_data)
+                    print("Unknown message type:", message)
 
             except Exception as e:
                 print("Error:", e)
                 break
+
         client_sock.close()
 
+
     threading.Thread(target=receive_data, daemon=True).start()
+    #threading.Thread(target=send_input, daemon=True).start()
 
 # === GAME SETUP ===
 
@@ -313,8 +359,22 @@ def run_server_gameplay_loop(events):
     player1.update_mode()
     player2.update_mode()
 
-    # ✅ Reuse draw function
     draw_gameplay_scene(screen)
+
+    if client_conn:
+        try:
+            game_state = {
+                "player1": player1.serialize(),
+                "player2": player2.serialize(),
+                "projectiles": [p.serialize() for p in player1.projectiles + player2.projectiles]
+            }
+            payload = pickle.dumps(game_state)
+            message = b"DATA:" + payload
+            length = len(message).to_bytes(4, 'big')  # 4-byte length prefix
+            client_conn.sendall(length + message)
+
+        except Exception as e:
+            print("Failed to send game state:", e)
 
 # === MAIN GAME LOOP ===
 

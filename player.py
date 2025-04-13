@@ -203,3 +203,40 @@ class Player:
         self.walk_frames = {"left": [2, 3, 4], "right": [7, 8, 9]}
         self.vel = 3  # back to normal speed
 
+    def refresh_sprite(self):
+        if self.state == "walking":
+            frame_list = self.walk_frames[self.direction]
+            frame = frame_list[(self.tick // 10) % len(frame_list)]
+            self.image = self.frames[frame]
+        elif self.state == "idle":
+            self.image = self.frames[self.stand_frames[self.direction]]
+        elif self.state == "attacking":
+            attack_frames = self.attack_frames[self.direction]
+            if self.attack_timer < len(attack_frames):
+                frame = attack_frames[self.attack_timer % len(attack_frames)]
+                self.image = self.frames[frame]
+        self.update_mode()
+
+    def serialize(self):
+        return {
+                "x": self.x,
+                "y": self.y,
+                "vel": self.vel,
+                "state": self.state,
+                "direction": self.direction,
+                "health": self.health,
+                "flash_timer": self.flash_timer,
+                "damage_cooldown": self.damage_cooldown
+        }
+
+    def deserialize(self, data):
+        self.x = data["x"]
+        self.y = data["y"]
+        self.vel = data["vel"]
+        self.state = data["state"]
+        self.direction = data["direction"]
+        self.health = data["health"]
+        self.flash_timer = data.get("flash_timer", 0)
+        self.damage_cooldown = data.get("damage_cooldown", 0)
+
+
