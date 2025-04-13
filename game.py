@@ -1,7 +1,7 @@
 import pygame # type: ignore
 import sys
 import time
-from conveyor_belt import PowerUp, ConveyorObject
+from conveyor_belt import ConveyorObject
 from player import Player, WIDTH, HEIGHT, GROUND_Y, load_frames
 from powerup import Powerup
 import random
@@ -38,27 +38,7 @@ scroll_x = 0
 ConveyorObject.ground_y = GROUND_Y - stage.get_height() + offset
 ConveyorObject.conveyor_height = conveyor_belt.get_height()
 ConveyorObject.scroll_speed = 1
-PowerUp.scroll_speed = 1  # Try + or - depending on scroll direction
-
-# Create list of power ups
-power_up_list = []
-
-# Load in power up images
-blueberry_img = pygame.image.load("imgs/powerups/blueberry.png").convert_alpha()
-cherry_img = pygame.image.load("imgs/powerups/cherry.png").convert_alpha()
-
-# Scale images
-power_up_size = (40, 40)
-blueberry_img = pygame.transform.scale(blueberry_img, power_up_size)
-cherry_img = pygame.transform.scale(cherry_img, power_up_size)
-
-# Create power up objects
-blueberry = PowerUp(image=blueberry_img, start_x=-100)
-cherry = PowerUp(image=cherry_img, start_x=200)
-
-# Add objects to power up list at start
-# power_up_list.append(blueberry)
-# power_up_list.append(cherry)
+Powerup.scroll_speed = 1  # Try + or - depending on scroll direction
 
 # Spawn timing config for power ups
 SPAWN_POWERUP_INTERVAL = 7000  # milliseconds (every 7 seconds)
@@ -80,8 +60,10 @@ hangry_donut_frames = load_frames("imgs/spritesheets/angry_donut_bear_spriteshee
 # Create players
 player1 = Player(200, GROUND_Y, bread_frames, hangry_bread_frames, "imgs/healthbar/bread.png", "bread", "right")
 player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "imgs/healthbar/donut.png", "donut", "left", weapon="gun", projectile_image="imgs\sprinkle_ammo.png")
+
 # List of powerups
-powerups = [Powerup(300, GROUND_Y, "cherry"), Powerup(600, GROUND_Y, "blueberry")]
+# powerups = [Powerup(300, GROUND_Y, "cherry"), Powerup(600, GROUND_Y, "blueberry")]
+powerups = []
 
 player1.set_opponents([player2])
 player2.set_opponents([player1])
@@ -111,10 +93,7 @@ while True:
 
     # THIS IS THE GROUND.  RENDER OUT EVERYTHING ELSE ON TOP OF THIS!!!
     # set background color
-    # screen.fill((240, 240, 240))
     screen.fill((180, 180, 180))
-    # screen.fill((255,237,204))
-    # screen.fill((204, 226, 255))
 
     # Calculate Y position so the bottom of the stage is displayed above the ground
     stage_y_axis = GROUND_Y - stage.get_height() + offset
@@ -137,30 +116,26 @@ while True:
 
     if current_time - last_spawn_time > SPAWN_POWERUP_INTERVAL:
         last_spawn_time = current_time
-        # print("in game loop, updated last_spawn_time: ", last_spawn_time)
+        print("in game loop, updated last_spawn_time: ", last_spawn_time)
 
         # Randomly spawn new power-up (0=blueberry, 1=cherry)
         rand = random.randint(0, 1)
         if (rand == 0):
             # generate blueberry
-            new_powerup = PowerUp(image=blueberry_img, start_x=-50)
+            new_powerup = Powerup(-50, 435, "blueberry")
+            # new_powerup = PowerUp(image=blueberry_img, start_x=-50)
         if (rand == 1):
             # generate cherry
-            new_powerup = PowerUp(image=cherry_img, start_x=-50)
+            new_powerup = Powerup(-50, 435, "cherry")
+            # new_powerup = PowerUp(image=cherry_img, start_x=-50)
 
-        power_up_list.append(new_powerup)
+        # power_up_list.append(new_powerup)
+        powerups.append(new_powerup)
+        # print(powerups)
+        for powerup in powerups:
+            print(powerup.type)
         # print(power_up_list)
         # print(f"New power up position: ({new_powerup.x}, {new_powerup.y})")
-
-    # Display power ups on conveyor belt
-    for obj in power_up_list:
-        obj.update()
-        obj.draw(screen)
-        # print(f"Blueberry position: ({blueberry.x}, {blueberry.y})")
-
-    # Remove off-screen objects
-    power_ups = [p for p in power_up_list if not p.is_off_screen(WIDTH)]
-
 
     # Draw players
     player1.draw(screen)
@@ -176,6 +151,7 @@ while True:
         powerup.check_collision(player1)
         powerup.check_collision(player2)
         powerup.draw(screen)
+        powerup.update()
         if powerup.collected:
             powerups.remove(powerup) # Remove the collected powerup
 

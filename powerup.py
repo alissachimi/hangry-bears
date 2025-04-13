@@ -30,3 +30,8 @@ class Powerup:
             player.pickup_powerup(self.type)
             player.flash_timer = self.flash_duration
             player.flash_mode = "rainbow"
+
+    def update(self):
+        scroll_speed = 1
+        self.x += scroll_speed 
+        self.rect.x = self.x  # Update rect position to match image
