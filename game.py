@@ -19,7 +19,7 @@ start_time = time.time()
 font = pygame.font.SysFont("Arial", 28)
 
 # Load playing stage
-stage = pygame.image.load("imgs/stages/wide-stage.png").convert()
+stage = pygame.image.load("imgs/stages/stage.png").convert()
 desired_height = GROUND_Y  # So it fits exactly up to the ground
 
 # Scale image
@@ -111,8 +111,10 @@ while True:
 
     # THIS IS THE GROUND.  RENDER OUT EVERYTHING ELSE ON TOP OF THIS!!!
     # set background color
-    screen.fill((240, 240, 240))
+    # screen.fill((240, 240, 240))
+    screen.fill((180, 180, 180))
     # screen.fill((255,237,204))
+    # screen.fill((204, 226, 255))
 
     # Calculate Y position so the bottom of the stage is displayed above the ground
     stage_y_axis = GROUND_Y - stage.get_height() + offset
@@ -147,7 +149,7 @@ while True:
             new_powerup = PowerUp(image=cherry_img, start_x=-50)
 
         power_up_list.append(new_powerup)
-        print(power_up_list)
+        # print(power_up_list)
         # print(f"New power up position: ({new_powerup.x}, {new_powerup.y})")
 
     # Display power ups on conveyor belt
