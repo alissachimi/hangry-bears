@@ -1,7 +1,7 @@
 import pygame # type: ignore
 import sys
 import time
-from conveyor_belt import PowerUp, ConveyorObject
+from conveyor_belt import ConveyorObject
 from player import Player, WIDTH, HEIGHT, GROUND_Y, load_frames
 from powerup import Powerup
 import random
@@ -16,7 +16,7 @@ import time
 # === CONFIG ===
 SERVER_HOST = '0.0.0.0'
 SERVER_PORT = 10141
-IP = "192.168.137.249"
+IP = "10.7.201.185"
 client_input = None
 client_conn = None
 
@@ -298,7 +298,7 @@ def initialize_client():
             time.sleep(0.02)
 
     def receive_data():
-        global current_screen, winner_player_number
+        global current_screen, winner_player_number, scroll_x, powerups
         while True:
             try:
                 # Step 1: read the length prefix (4 bytes)
@@ -337,24 +337,50 @@ def initialize_client():
                     try:
                         game_state = pickle.loads(message[5:])  # skip "DATA:"
                         if isinstance(game_state, dict):
+                            # Players
                             player1.deserialize(game_state["player1"])
                             player2.deserialize(game_state["player2"])
                             player1.refresh_sprite()
                             player2.refresh_sprite()
 
+                            # Projectiles
                             player1.projectiles.clear()
                             player2.projectiles.clear()
-
                             for proj_data in game_state.get("projectiles", []):
                                 if "bread" in proj_data["image_path"]:
                                     player1.projectiles.append(Projectile.create_projectile_from_data(proj_data))
                                 else:
                                     player2.projectiles.append(Projectile.create_projectile_from_data(proj_data))
-                        else:
-                            print("Received non-dictionary data:", game_state)
-                    except Exception as e:
-                        print("Error decoding pickle:", e)
 
+                            # Conveyor belt scroll
+                            scroll_x = game_state.get("scroll_x", 0)
+
+
+                            incoming_powerup_data = game_state.get("power_ups", [])
+                            for i, powerup_data in enumerate(incoming_powerup_data):
+                                if i < len(powerups):
+                                    powerups[i].update_from_data(powerup_data)
+                                else:
+                                    powerups.append(Powerup.deserialize(powerup_data))
+
+
+                            # Platforms
+                            incoming_platform_data = game_state.get("platforms", [])
+                            for i, platform_data in enumerate(incoming_platform_data):
+                                if i < len(platforms):
+                                    platforms[i].rect.x = platform_data["x"]
+                                    platforms[i].rect.y = platform_data["y"]
+                                    platforms[i].direction = platform_data["direction"]
+                                    # You can update more if needed, e.g., speed, etc.
+
+
+                            # Cherry Bombs
+                            cherry_projectiles.clear()
+                            for cherry_data in game_state.get("cherry_bombs", []):
+                                cherry_projectiles.append(CherryProjectile.deserialize(cherry_data))
+                    except Exception as e:
+                        print("Error:", e)
+                        break
                 else:
                     print("Unknown message type:", message)
 
@@ -394,27 +420,13 @@ scroll_x = 0
 ConveyorObject.ground_y = GROUND_Y - stage.get_height() + offset
 ConveyorObject.conveyor_height = conveyor_belt.get_height()
 ConveyorObject.scroll_speed = 1
-PowerUp.scroll_speed = 1  # Try + or - depending on scroll direction
+Powerup.scroll_speed = 1  # Try + or - depending on scroll direction
 
 # Create list of power ups
-power_up_list = []
+powerups = []
 
-# Load in power up images
-blueberry_img = pygame.image.load("imgs/powerups/blueberry.png").convert_alpha()
-cherry_img = pygame.image.load("imgs/powerups/cherry.png").convert_alpha()
-
-# Scale images
-power_up_size = (40, 40)
-blueberry_img = pygame.transform.scale(blueberry_img, power_up_size)
-cherry_img = pygame.transform.scale(cherry_img, power_up_size)
-
-# Create power up objects
-blueberry = PowerUp(image=blueberry_img, start_x=-100)
-cherry = PowerUp(image=cherry_img, start_x=200)
-
-# Add objects to power up list at start
-# power_up_list.append(blueberry)
-# power_up_list.append(cherry)
+# Create list of cherry bombs
+cherry_projectiles = []
 
 # Spawn timing config for power ups
 SPAWN_POWERUP_INTERVAL = 7000  # milliseconds (every 7 seconds)
@@ -447,17 +459,49 @@ platforms = [
 ]
 
 def draw_gameplay_scene(surface):
-    surface.fill((240, 240, 240))
-    pygame.draw.rect(surface, (180, 180, 180), (0, GROUND_Y + 40, WIDTH, HEIGHT - GROUND_Y))
+    surface.fill((180, 180, 180))
 
+    # Draw stage
+    stage_y_axis = GROUND_Y - stage.get_height() + offset
+    surface.blit(stage, (0, stage_y_axis))
+
+    # Draw conveyor belt
+    surface.blit(conveyor_belt, (scroll_x, belt_y_axis))
+    surface.blit(conveyor_belt, (scroll_x - conveyor_belt.get_width(), belt_y_axis))
+
+    # Draw power-ups
+    for obj in powerups:
+        obj.draw(surface)
+
+    # Draw players
     player1.draw(surface)
     player2.draw(surface)
 
+    for projectile in player1.projectiles:
+        projectile.draw(surface)
+    for projectile in player2.projectiles:
+        projectile.draw(surface)
+
+    for powerup in list(powerups):
+        powerup.draw(surface)
+
+    for platform in platforms:
+        platform.draw(surface)
+    
+    for bomb in cherry_projectiles:
+        bomb.draw(surface)
+
+    # Health bars & profiles
     surface.blit(profile1, (20, HEIGHT - 80))
     surface.blit(profile2, (WIDTH - 80, HEIGHT - 80))
     player1.draw_health(surface, 90, HEIGHT - 60)
     player2.draw_health(surface, WIDTH - 290, HEIGHT - 60)
 
+    # Draw player power-ups
+    player1.draw_powerup(surface, 90, HEIGHT - 30, is_player1=True)
+    player2.draw_powerup(surface, WIDTH - 90, HEIGHT - 30, is_player1=False)
+
+    # Draw timer
     elapsed_seconds = int(time.time() - start_time)
     minutes = elapsed_seconds // 60
     seconds = elapsed_seconds % 60
@@ -465,16 +509,24 @@ def draw_gameplay_scene(surface):
     clock_rect = clock_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
     surface.blit(clock_text, clock_rect)
 
+
 def run_client_gameplay_loop(events):
+    global cherry_projectiles
+
     for event in events:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
 
+    for bomb in cherry_projectiles:
+        bomb.update([player1, player2])
+    cherry_projectiles = [bomb for bomb in cherry_projectiles if bomb.show_explosion or not bomb.exploded]
+
     draw_gameplay_scene(screen)
 
 
 def run_server_gameplay_loop(events):
+    global cherry_projectiles, powerups, scroll_x, last_spawn_time
     global current_screen, winner_player_number
 
     keys = pygame.key.get_pressed()
@@ -510,6 +562,37 @@ def run_server_gameplay_loop(events):
     player1.update_mode()
     player2.update_mode()
 
+    scroll_x += 1
+    if scroll_x >= conveyor_belt.get_width():
+        scroll_x = 0
+
+    # Power-up spawning
+    current_time = pygame.time.get_ticks()
+    if current_time - last_spawn_time > SPAWN_POWERUP_INTERVAL:
+        last_spawn_time = current_time
+        rand = random.randint(0, 1)
+        if rand == 0:
+            new_powerup = Powerup(-50, 435, "blueberry")
+        else:
+            new_powerup = Powerup(-50, 435, "cherry")
+        powerups.append(new_powerup)
+
+    # Update power-up positions
+    for obj in powerups:
+        obj.update()
+
+    # Update platforms
+    for platform in platforms:
+        platform.update()
+        platform.check_collision(player1)
+        platform.check_collision(player2)
+
+    # Update cherry bombs
+    for bomb in cherry_projectiles:
+        bomb.update([player1, player2])
+    cherry_projectiles = [bomb for bomb in cherry_projectiles if bomb.show_explosion or not bomb.exploded]
+
+
     draw_gameplay_scene(screen)
     
     if player1.health <= 0 or player2.health <= 0:
@@ -535,8 +618,13 @@ def run_server_gameplay_loop(events):
             game_state = {
                 "player1": player1.serialize(),
                 "player2": player2.serialize(),
-                "projectiles": [p.serialize() for p in player1.projectiles + player2.projectiles]
+                "projectiles": [p.serialize() for p in player1.projectiles + player2.projectiles],
+                "power_ups": [p.serialize() for p in powerups],
+                "scroll_x": scroll_x,
+                "platforms": [platform.serialize() for platform in platforms],
+                "cherry_bombs": [bomb.serialize() for bomb in cherry_projectiles],
             }
+
             payload = pickle.dumps(game_state)
             message = b"DATA:" + payload
             length = len(message).to_bytes(4, 'big')  # 4-byte length prefix
