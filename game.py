@@ -47,7 +47,7 @@ hangry_donut_frames = load_frames("imgs/angry_donut_bear_spritesheet.png")
 
 # Player class
 class Player:
-    def __init__(self, x, y, frames, hangry_frames, direction="right"):
+    def __init__(self, x, y, frames, hangry_frames, icon, direction="right"):
         self.x = x
         self.y = y
         self.frames = frames
@@ -71,6 +71,15 @@ class Player:
         self.stand_frames = {"left": 3, "right": 8}
         self.walk_frames = {"left": [2, 3, 4], "right": [7, 8, 9]}
         self.attack_frames = {"left": [1, 0, 1, 0], "right": [6, 5, 6, 5]}
+
+        self.full_icon_img = pygame.image.load(icon).convert_alpha()
+        self.full_icon_img = pygame.transform.scale(self.full_icon_img, (32, 32))
+
+        half_icon_path = icon.replace(".png", "-half.png")  # naming like "bread.png" -> "bread-half.png"
+        self.half_icon_img = pygame.image.load(half_icon_path).convert_alpha()
+        self.half_icon_img = pygame.transform.scale(self.half_icon_img, (16, 32))
+
+
 
     def get_hitbox(self):
         width = self.image.get_width()
@@ -153,16 +162,18 @@ class Player:
     def draw(self, surface):
         surface.blit(self.image, (self.x, self.y))
 
-    def draw_health(self, surface, x, y, icon):
+    def draw_health(self, surface, x, y):
         hearts = 5
         health_per_heart = 100 / hearts
         current = int(self.health / health_per_heart)
-        icon_img = pygame.image.load(icon).convert_alpha()
-        icon_img = pygame.transform.scale(icon_img, (32, 32))
+        remainder = self.health % health_per_heart
 
         for i in range(hearts):
+            pos = (x + i * 35, y)
             if i < current:
-                surface.blit(icon_img, (x + i * 35, y))
+                surface.blit(self.full_icon_img, pos)
+            elif i == current and remainder > 0:
+                surface.blit(self.half_icon_img, pos)
     
     def enter_hangry_mode(self):
         self.is_hangry = True
@@ -174,8 +185,8 @@ class Player:
 
 
 # Create players
-player1 = Player(200, GROUND_Y, bread_frames, hangry_bread_frames, "right")
-player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "left")
+player1 = Player(200, GROUND_Y, bread_frames, hangry_bread_frames, "imgs/healthbar/bread.png", "right")
+player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "imgs/healthbar/donut.png", "left")
 
 # Game loop
 while True:
@@ -204,13 +215,13 @@ while True:
 
     # Health bars & profiles
     screen.blit(profile1, (20, HEIGHT - 80))
-    player1.draw_health(screen, 90, HEIGHT - 60, "imgs/healthbar/bread.png")
+    player1.draw_health(screen, 90, HEIGHT - 60)
     player1.enter_hangry_mode()
     player2.enter_hangry_mode()
 
 
     screen.blit(profile2, (WIDTH - 80, HEIGHT - 80))
-    player2.draw_health(screen, WIDTH - 290, HEIGHT - 60, "imgs/healthbar/donut.png")
+    player2.draw_health(screen, WIDTH - 290, HEIGHT - 60)
 
     # Game clock
     elapsed_seconds = int(time.time() - start_time)
