@@ -373,7 +373,7 @@ def initialize_client():
                             player1.projectiles.clear()
                             player2.projectiles.clear()
                             for proj_data in game_state.get("projectiles", []):
-                                if "bread" in proj_data["image_path"]:
+                                if "image_path" in proj_data and "bread" in proj_data["image_path"]:
                                     player1.projectiles.append(Projectile.create_projectile_from_data(proj_data))
                                 else:
                                     player2.projectiles.append(Projectile.create_projectile_from_data(proj_data))
