@@ -1,7 +1,11 @@
-import pygame
+import pygame # type: ignore
 import sys
 import time
-from player import Player, WIDTH, HEIGHT, GROUND_Y
+from conveyor_belt import PowerUp, ConveyorObject
+from player import Player, WIDTH, HEIGHT, GROUND_Y, load_frames
+from powerup import Powerup
+import random
+from plat import Platform
 from button import Button
 from projectile import Projectile
 import socket
@@ -370,27 +374,59 @@ def reset_game():
 
 # === GAME SETUP ===
 
+# Load playing stage
+stage = pygame.image.load("imgs/stages/stage.png").convert()
+desired_height = GROUND_Y  # So it fits exactly up to the ground
+
+# Scale image
+background_img = pygame.transform.scale(stage, (WIDTH, desired_height))
+offset = 160  # adjust as needed
+
+# Load conveyor belt and set up scroll
+conveyor_belt = pygame.image.load("imgs/stages/conveyor-belt.png").convert_alpha()
+belt_y_axis = GROUND_Y - conveyor_belt.get_height() + offset # position above ground
+tile_width = conveyor_belt.get_width()
+tile_height = conveyor_belt.get_height()
+conveyor_belt = pygame.transform.scale(conveyor_belt, (tile_width, tile_height))
+scroll_x = 0
+
+# Setup for power up scroll on conveyor belt
+ConveyorObject.ground_y = GROUND_Y - stage.get_height() + offset
+ConveyorObject.conveyor_height = conveyor_belt.get_height()
+ConveyorObject.scroll_speed = 1
+PowerUp.scroll_speed = 1  # Try + or - depending on scroll direction
+
+# Create list of power ups
+power_up_list = []
+
+# Load in power up images
+blueberry_img = pygame.image.load("imgs/powerups/blueberry.png").convert_alpha()
+cherry_img = pygame.image.load("imgs/powerups/cherry.png").convert_alpha()
+
+# Scale images
+power_up_size = (40, 40)
+blueberry_img = pygame.transform.scale(blueberry_img, power_up_size)
+cherry_img = pygame.transform.scale(cherry_img, power_up_size)
+
+# Create power up objects
+blueberry = PowerUp(image=blueberry_img, start_x=-100)
+cherry = PowerUp(image=cherry_img, start_x=200)
+
+# Add objects to power up list at start
+# power_up_list.append(blueberry)
+# power_up_list.append(cherry)
+
+# Spawn timing config for power ups
+SPAWN_POWERUP_INTERVAL = 7000  # milliseconds (every 7 seconds)
+last_spawn_time = pygame.time.get_ticks()
+# print("initial last_spawn_time: ", last_spawn_time)
+
 # Load profile pictures
 profile1 = pygame.image.load("imgs/bread_bear_profile.png").convert_alpha()
 profile2 = pygame.image.load("imgs/donut_bear_profile.png").convert_alpha()
 profile_size = (80, 80)
 profile1 = pygame.transform.scale(profile1, profile_size)
 profile2 = pygame.transform.scale(profile2, profile_size)
-
-# Load and process spritesheets
-def load_frames(path):
-    spritesheet = pygame.image.load(path).convert_alpha()
-    frame_w = spritesheet.get_width() // 10
-    frame_h = spritesheet.get_height()
-    desired_w = int(frame_w * 0.2)
-    desired_h = int(frame_h * 0.2)
-    return [
-        pygame.transform.smoothscale(
-            spritesheet.subsurface(pygame.Rect(i * frame_w, 0, frame_w, frame_h)),
-            (desired_w, desired_h)
-        )
-        for i in range(10)
-    ]
 
 bread_frames = load_frames("imgs/spritesheets/bread_bear_spritesheet.png")
 donut_frames = load_frames("imgs/spritesheets/donut_bear_spritesheet.png")
@@ -400,6 +436,15 @@ hangry_donut_frames = load_frames("imgs/spritesheets/angry_donut_bear_spriteshee
 # Create players
 player1 = Player(200, GROUND_Y, bread_frames, hangry_bread_frames, "imgs/healthbar/bread.png", "bread", "right")
 player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "imgs/healthbar/donut.png", "donut", "left", weapon="gun", projectile_image="imgs/sprinkle_ammo.png")
+
+powerups = [Powerup(300, GROUND_Y, "cherry"), Powerup(600, GROUND_Y, "blueberry")]
+
+platforms = [
+    Platform(100, 300, "imgs/platform.png", width=120, move_range=70, speed=.7),
+    Platform(300, 200, "imgs/platform.png", width=120, move_range=50, speed=.7),
+    Platform(500, 350, "imgs/platform.png", width=120, move_range=100, speed=1),
+    Platform(600, 150, "imgs/platform.png", width=120, move_range=70, speed=.8),
+]
 
 def draw_gameplay_scene(surface):
     surface.fill((240, 240, 240))
