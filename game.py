@@ -16,14 +16,14 @@ start_time = time.time()
 font = pygame.font.SysFont("Arial", 28)
 button_font = pygame.font.Font("fonts/silkscreen.ttf", 32)
 
-button_width = 250
+button_width = 270
 button_height = 60
 
 arrow_cursor = pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW)
 hand_cursor = pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND)
 
 def title_screen():
-    title_bg = pygame.image.load("imgs/title-screen.png").convert()
+    title_bg = pygame.image.load("imgs/ui/title-screen.png").convert()
     title_bg = pygame.transform.scale(title_bg, (WIDTH, HEIGHT))
     start_button_x = (WIDTH - button_width) // 2
     start_button_y = HEIGHT - 340
@@ -58,7 +58,7 @@ def title_screen():
 
 
 def multiplayer_options_screen():
-    bg = pygame.image.load("imgs/multiplayer-options-screen.png").convert()
+    bg = pygame.image.load("imgs/ui/multiplayer-options-screen.png").convert()
 
     host_game_button_x = join_game_button_x = (WIDTH - button_width) // 2
     host_game_button_y = HEIGHT - 300
@@ -146,7 +146,7 @@ while True:
                 player2.attack()
 
     # Update players
-    player1.update(keys, pygame.K_LEFT, pygame.K_RIGHT, pygame.K_SPACE, pygame.K_r, player2)
+    player1.update(keys, pygame.K_LEFT, pygame.K_RIGHT, pygame.K_SPACE, pygame.K_l, player2)
     player2.update(keys, pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_f, player1)
     player1.check_attack_collision(player2)
     player2.check_attack_collision(player1)
