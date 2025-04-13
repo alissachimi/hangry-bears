@@ -23,6 +23,8 @@ class Player:
         self.is_hangry = False  
         self.normal_frames = frames
         self.flash_timer = 0 
+        self.initial_weapon = weapon
+        self.initial_projectile_image = projectile_image
 
         self.y_vel = 0
         self.gravity = 0.5
@@ -41,8 +43,6 @@ class Player:
         half_icon_path = icon.replace(".png", "-half.png")  # naming like "bread.png" -> "bread-half.png"
         self.half_icon_img = pygame.image.load(half_icon_path).convert_alpha()
         self.half_icon_img = pygame.transform.scale(self.half_icon_img, (16, 32))
-
-
 
         self.projectiles = []
         self.weapon = weapon
@@ -216,6 +216,36 @@ class Player:
                 frame = attack_frames[self.attack_timer % len(attack_frames)]
                 self.image = self.frames[frame]
         self.update_mode()
+    
+    def reset_state(self):
+        self.health = 100
+        self.projectiles.clear()
+
+        # Position
+        if self.name == "bread":
+            self.x = 200
+        elif self.name == "donut":
+            self.x = 500
+        self.y = GROUND_Y
+
+        self.y_vel = 0
+        self.on_ground = True
+
+        # States
+        self.state = "idle"
+        self.tick = 0
+        self.attack_timer = 0
+        self.flash_timer = 0
+        self.damage_cooldown = 0
+
+        # Hangry mode reset — force properly
+        self.is_hangry = False
+        self.exit_hangry_mode()  # <- good
+        self.weapon = self.initial_weapon
+        self.projectile_image = self.initial_projectile_image
+
+        # Refresh sprite
+        self.refresh_sprite()
 
     def serialize(self):
         return {
@@ -238,5 +268,6 @@ class Player:
         self.health = data["health"]
         self.flash_timer = data.get("flash_timer", 0)
         self.damage_cooldown = data.get("damage_cooldown", 0)
+        self.tick += 1
 
 

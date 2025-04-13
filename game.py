@@ -12,8 +12,7 @@ import time
 # === CONFIG ===
 SERVER_HOST = '0.0.0.0'
 SERVER_PORT = 10141
-#IP = "192.168.182.18"
-IP = "10.194.41.9"
+IP = "192.168.137.249"
 client_input = None
 client_conn = None
 
@@ -53,6 +52,12 @@ join_game_button = None
 lobby_bg = None
 play_button = None
 
+# Game over screen globals
+winner_bg = None
+return_button = None
+winner_image_path = None
+winner_player_number = None
+
 # === SETUP FUNCTIONS ===
 
 def setup_title_screen():
@@ -79,6 +84,17 @@ def setup_server_lobby_screen():
     play_button_x = (WIDTH - button_width) // 2
     play_button_y = HEIGHT - 340
     play_button = Button("Play Game", play_button_x, play_button_y, button_width, button_height, button_font)
+
+def setup_winner_screen(player_number):
+    global winner_bg, return_button, winner_image_path
+
+    if player_number == 1:
+        winner_image_path = "imgs/ui/player1_winner_screen.png"
+    else:
+        winner_image_path = "imgs/ui/player2_winner_screen.png"
+
+    winner_bg = pygame.image.load(winner_image_path).convert()
+    return_button = Button("Play Again", WIDTH - 300, HEIGHT - 100, button_width, button_height, button_font)
 
 # === SCREEN RUN FUNCTIONS ===
 
@@ -140,6 +156,41 @@ def run_server_lobby_screen(events):
             except:
                 print("Failed to send mode switch to client.")
 
+def run_winner_screen(events):
+    global current_screen, winner_player_number
+
+    screen.blit(winner_bg, (0, 0))
+
+    if is_host:
+        mouse_pos = pygame.mouse.get_pos()
+        if return_button.rect.collidepoint(mouse_pos):
+            pygame.mouse.set_cursor(hand_cursor)
+        else:
+            pygame.mouse.set_cursor(arrow_cursor)
+
+        return_button.draw(screen)
+
+        for event in events:
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if return_button.is_clicked(events):
+                current_screen = "server_lobby"
+                winner_player_number = None
+                reset_game()
+
+                # Send command to client to return to client lobby
+                if client_conn:
+                    try:
+                        command = b"CMD:RETURN_TO_LOBBY\n"
+                        length = len(command).to_bytes(4, 'big')
+                        client_conn.sendall(length + command)
+                    except Exception as e:
+                        print("Error sending return to lobby:", e)
+    else:
+        pygame.mouse.set_cursor(arrow_cursor)
+
+
 def display_ui(screen_path):
     bg = pygame.image.load(screen_path).convert()
     screen.blit(bg, (0, 0))
@@ -149,19 +200,36 @@ def display_ui(screen_path):
 def handle_client(conn, addr):
     print(f"Client connected: {addr}")
     global client_input
-    while True:
-        try:
-            data = conn.recv(1024)
-            if not data:
+    try:
+        while True:
+            # Step 1: read length prefix
+            length_data = recv_exact(conn, 4)
+            if not length_data:
                 print("Client disconnected")
                 break
-            command = data.decode().strip()
-            print("Received:", command)
-            client_input = command  # ✅ store the latest input
-        except ConnectionResetError:
-            print("Connection lost")
-            break
-    conn.close()
+
+            message_length = int.from_bytes(length_data, 'big')
+
+            # Step 2: read the actual message
+            message = recv_exact(conn, message_length)
+            if not message:
+                print("Client disconnected during message")
+                break
+
+            # Step 3: process message
+            if message.startswith(b"INPUT:"):
+                try:
+                    client_input = pickle.loads(message[6:])  # skip 'INPUT:'
+                except Exception as e:
+                    print("Failed to load client input:", e)
+
+            else:
+                print("Unknown client message:", message)
+
+    except ConnectionResetError:
+        print("Connection lost")
+    finally:
+        conn.close()
 
 # Helper function to read in data
 def recv_exact(sock, num_bytes):
@@ -182,7 +250,7 @@ def initialize_server():
     def accept_connection():
         global current_screen, client_conn
         conn, addr = server_sock.accept()
-        client_conn = conn  # ✅ store for sending game state
+        client_conn = conn
         print("Client connected!")
         current_screen = "server_lobby"
         threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
@@ -207,17 +275,26 @@ def initialize_client():
     def send_input():
         while True:
             keys = pygame.key.get_pressed()
-            if keys[pygame.K_a]:
-                client_sock.sendall(b"MOVE_LEFT\n")
-            if keys[pygame.K_d]:
-                client_sock.sendall(b"MOVE_RIGHT\n")
-            if keys[pygame.K_w]:
-                client_sock.sendall(b"JUMP\n")
-            if keys[pygame.K_f]:
-                client_sock.sendall(b"ATTACK\n")
-            time.sleep(0.02)  # ~50 times per second
+            input_state = {
+                "left": keys[pygame.K_a],
+                "right": keys[pygame.K_d],
+                "jump": keys[pygame.K_w],
+                "attack": keys[pygame.K_f]
+            }
+            try:
+                # Serialize the input state and send
+                payload = pickle.dumps(input_state)
+                message = b"INPUT:" + payload
+                length = len(message).to_bytes(4, 'big')
+                client_sock.sendall(length + message)
+            except Exception as e:
+                print("Error sending input:", e)
+                break
+
+            time.sleep(0.02)
 
     def receive_data():
+        global current_screen, winner_player_number
         while True:
             try:
                 # Step 1: read the length prefix (4 bytes)
@@ -241,6 +318,16 @@ def initialize_client():
                         global current_screen
                         current_screen = "client_gameplay"
                         print("Switching to client gameplay!")
+                    elif command == "PLAYER1_WINS":
+                        winner_player_number = 1
+                        current_screen = "winner"
+                    elif command == "PLAYER2_WINS":
+                        winner_player_number = 2
+                        current_screen = "winner"
+                    elif command == "RETURN_TO_LOBBY":
+                        reset_game()
+                        current_screen = "client_lobby"
+
 
                 elif message.startswith(b"DATA:"):
                     try:
@@ -275,7 +362,11 @@ def initialize_client():
 
 
     threading.Thread(target=receive_data, daemon=True).start()
-    #threading.Thread(target=send_input, daemon=True).start()
+    threading.Thread(target=send_input, daemon=True).start()
+
+def reset_game():
+    player1.reset_state()
+    player2.reset_state()
 
 # === GAME SETUP ===
 
@@ -339,6 +430,8 @@ def run_client_gameplay_loop(events):
 
 
 def run_server_gameplay_loop(events):
+    global current_screen, winner_player_number
+
     keys = pygame.key.get_pressed()
 
     for event in events:
@@ -346,13 +439,26 @@ def run_server_gameplay_loop(events):
             pygame.quit()
             sys.exit()
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_r:
-                player1.attack()
             if event.key == pygame.K_f:
-                player2.attack()
+                player1.attack()
 
-    player1.update(keys, pygame.K_LEFT, pygame.K_RIGHT, pygame.K_SPACE, pygame.K_l, player2)
-    player2.update(keys, pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_f, player1)
+    player1.update(keys, pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_f, player2)
+
+    input_state = client_input if client_input else {"left": False, "right": False, "jump": False, "attack": False}
+
+    # Simulate keys dictionary for Player 2
+    player2_keys = {
+        pygame.K_a: input_state["left"],
+        pygame.K_d: input_state["right"],
+        pygame.K_w: input_state["jump"],
+        pygame.K_f: input_state["attack"]
+    }
+
+    if input_state["attack"]:
+        player2.attack()
+
+    player2.update(player2_keys, pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_f, player1)
+
     player1.check_attack_collision(player2)
     player2.check_attack_collision(player1)
 
@@ -360,6 +466,24 @@ def run_server_gameplay_loop(events):
     player2.update_mode()
 
     draw_gameplay_scene(screen)
+    
+    if player1.health <= 0 or player2.health <= 0:
+        winner_player_number = 2 if player1.health <= 0 else 1
+        current_screen = "winner"
+
+        if client_conn:
+            try:
+                if winner_player_number == 1:
+                    command = b"CMD:PLAYER1_WINS\n"
+                else:
+                    command = b"CMD:PLAYER2_WINS\n"
+                length = len(command).to_bytes(4, 'big')
+                client_conn.sendall(length + command)
+            except Exception as e:
+                print("Failed to send winner message:", e)
+        return
+
+
 
     if client_conn:
         try:
@@ -391,7 +515,12 @@ while running:
             setup_multiplayer_options_screen()
         elif current_screen == "server_lobby":
             setup_server_lobby_screen()
+        elif current_screen == "winner":
+            if winner_player_number is not None:
+                setup_winner_screen(winner_player_number)
+
         previous_screen = current_screen
+
 
     if current_screen == "title":
         run_title_screen(events)
@@ -409,6 +538,9 @@ while running:
         run_server_gameplay_loop(events)
     elif current_screen == "client_gameplay":
         run_client_gameplay_loop(events)
+    elif current_screen == "winner":
+        run_winner_screen(events)
+
 
     pygame.display.update()
     clock.tick(60)
