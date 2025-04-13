@@ -2,7 +2,7 @@ import pygame # type: ignore
 from projectile import Projectile
 from cherry_bomb import CherryProjectile
 
-WIDTH, HEIGHT = 800, 600
+WIDTH, HEIGHT = 1000, 600
 GROUND_Y = HEIGHT - 250
 
 # Load and process spritesheets
@@ -44,6 +44,8 @@ class Player:
         self.opponents = None
         self.powerup=None
         
+        self.initial_weapon = weapon
+        self.initial_projectile_image = projectile_image
 
         self.y_vel = 0
         self.gravity = 0.5
@@ -338,7 +340,7 @@ class Player:
         self.stand_frames = {"left": 3, "right": 8}
         self.walk_frames = {"left": [2, 3, 4], "right": [7, 8, 9]}
         self.vel = 3  # back to normal speed
-    
+
     # powerup should be cherry or blueberry
     def pickup_powerup(self, powerup):
         self.powerup=powerup
@@ -355,4 +357,72 @@ class Player:
 
         if powerup == "blueberry":
             self.powerup_timer = self.powerup_duration
+
+    def refresh_sprite(self):
+        if self.state == "walking":
+            frame_list = self.walk_frames[self.direction]
+            frame = frame_list[(self.tick // 10) % len(frame_list)]
+            self.image = self.frames[frame]
+        elif self.state == "idle":
+            self.image = self.frames[self.stand_frames[self.direction]]
+        elif self.state == "attacking":
+            attack_frames = self.attack_frames[self.direction]
+            if self.attack_timer < len(attack_frames):
+                frame = attack_frames[self.attack_timer % len(attack_frames)]
+                self.image = self.frames[frame]
+        self.update_mode()
+    
+    def reset_state(self):
+        self.health = 100
+        self.projectiles.clear()
+
+        # Position
+        if self.name == "bread":
+            self.x = 200
+        elif self.name == "donut":
+            self.x = 500
+        self.y = GROUND_Y
+
+        self.y_vel = 0
+        self.on_ground = True
+
+        # States
+        self.state = "idle"
+        self.tick = 0
+        self.attack_timer = 0
+        self.flash_timer = 0
+        self.damage_cooldown = 0
+
+        # Hangry mode reset — force properly
+        self.is_hangry = False
+        self.exit_hangry_mode()  # <- good
+        self.weapon = self.initial_weapon
+        self.projectile_image = self.initial_projectile_image
+
+        # Refresh sprite
+        self.refresh_sprite()
+
+    def serialize(self):
+        return {
+                "x": self.x,
+                "y": self.y,
+                "vel": self.vel,
+                "state": self.state,
+                "direction": self.direction,
+                "health": self.health,
+                "flash_timer": self.flash_timer,
+                "damage_cooldown": self.damage_cooldown
+        }
+
+    def deserialize(self, data):
+        self.x = data["x"]
+        self.y = data["y"]
+        self.vel = data["vel"]
+        self.state = data["state"]
+        self.direction = data["direction"]
+        self.health = data["health"]
+        self.flash_timer = data.get("flash_timer", 0)
+        self.damage_cooldown = data.get("damage_cooldown", 0)
+        self.tick += 1
+
 

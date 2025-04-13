@@ -7,6 +7,7 @@ class Platform:
         height = int(width / aspect_ratio)
 
         self.image = pygame.transform.scale(original_image, (width, height))
+        self.image_path = image_path
         self.rect = self.image.get_rect(topleft=(x, y))
 
         self.start_x = x
@@ -31,3 +32,31 @@ class Platform:
                 player.y = self.rect.top - player.image.get_height()
                 player.y_vel = 0
                 player.on_ground = True
+    
+    def serialize(self):
+        return {
+            "x": self.rect.x,
+            "y": self.rect.y,
+            "start_x": self.start_x,
+            "move_range": self.move_range,
+            "speed": self.speed,
+            "direction": self.direction,
+            "image_path": self.image_path,
+            "width": self.rect.width
+        }
+
+    @staticmethod
+    def deserialize(data):
+        platform = Platform(
+            x=data["start_x"],
+            y=data["y"],
+            image_path=data["image_path"],
+            width=data["width"],
+            move_range=data["move_range"],
+            speed=data["speed"]
+        )
+        platform.rect.x = data["x"]
+        platform.rect.y = data["y"]
+        platform.direction = data["direction"]
+        return platform
+
