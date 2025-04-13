@@ -374,11 +374,6 @@ def initialize_client():
                                     platforms[i].direction = platform_data["direction"]
                                     # You can update more if needed, e.g., speed, etc.
 
-
-                            # Cherry Bombs
-                            cherry_projectiles.clear()
-                            for cherry_data in game_state.get("cherry_bombs", []):
-                                cherry_projectiles.append(CherryProjectile.deserialize(cherry_data))
                     except Exception as e:
                         print("Error:", e)
                         break
@@ -425,9 +420,6 @@ Powerup.scroll_speed = 1  # Try + or - depending on scroll direction
 
 # Create list of power ups
 
-# Create list of cherry bombs
-cherry_projectiles = []
-
 # Spawn timing config for power ups
 SPAWN_POWERUP_INTERVAL = 7000  # milliseconds (every 7 seconds)
 last_spawn_time = pygame.time.get_ticks()
@@ -449,8 +441,8 @@ hangry_donut_frames = load_frames("imgs/spritesheets/angry_donut_bear_spriteshee
 player1 = Player(200, GROUND_Y, bread_frames, hangry_bread_frames, "imgs/healthbar/bread.png", "bread", "right")
 player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "imgs/healthbar/donut.png", "donut", "left", weapon="gun", projectile_image="imgs/sprinkle_ammo.png")
 
-player1.set_opponents(player2)
-player2.set_opponents(player1)
+player1.set_opponents([player2])
+player2.set_opponents([player1])
 
 # powerups = [Powerup(300, GROUND_Y, "cherry"), Powerup(600, GROUND_Y, "blueberry")]
 powerups = []
@@ -492,9 +484,6 @@ def draw_gameplay_scene(surface):
     for platform in platforms:
         platform.draw(surface)
     
-    for bomb in cherry_projectiles:
-        bomb.draw(surface)
-
     # Health bars & profiles
     surface.blit(profile1, (20, HEIGHT - 80))
     surface.blit(profile2, (WIDTH - 80, HEIGHT - 80))
@@ -515,22 +504,16 @@ def draw_gameplay_scene(surface):
 
 
 def run_client_gameplay_loop(events):
-    global cherry_projectiles
-
     for event in events:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
 
-    for bomb in cherry_projectiles:
-        bomb.update([player1, player2])
-    cherry_projectiles = [bomb for bomb in cherry_projectiles if bomb.show_explosion or not bomb.exploded]
-
     draw_gameplay_scene(screen)
 
 
 def run_server_gameplay_loop(events):
-    global cherry_projectiles, powerups, scroll_x, last_spawn_time
+    global powerups, scroll_x, last_spawn_time
     global current_screen, winner_player_number
 
     keys = pygame.key.get_pressed()
@@ -618,12 +601,6 @@ def run_server_gameplay_loop(events):
         platform.check_collision(player1)
         platform.check_collision(player2)
 
-    # Update cherry bombs
-    for bomb in cherry_projectiles:
-        bomb.update([player1, player2])
-    cherry_projectiles = [bomb for bomb in cherry_projectiles if bomb.show_explosion or not bomb.exploded]
-
-
     draw_gameplay_scene(screen)
     
     if player1.health <= 0 or player2.health <= 0:
@@ -652,8 +629,7 @@ def run_server_gameplay_loop(events):
                 "projectiles": [p.serialize() for p in player1.projectiles + player2.projectiles],
                 "power_ups": [p.serialize() for p in powerups],
                 "scroll_x": scroll_x,
-                "platforms": [platform.serialize() for platform in platforms],
-                "cherry_bombs": [bomb.serialize() for bomb in cherry_projectiles],
+                "platforms": [platform.serialize() for platform in platforms]
             }
 
             payload = pickle.dumps(game_state)
