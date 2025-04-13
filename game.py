@@ -2,6 +2,7 @@ import pygame # type: ignore
 import sys
 import time
 from conveyor_belt import ConveyorObject
+from conveyor_belt import ConveyorObject
 from player import Player, WIDTH, HEIGHT, GROUND_Y, load_frames
 from powerup import Powerup
 import random
@@ -423,7 +424,6 @@ ConveyorObject.scroll_speed = 1
 Powerup.scroll_speed = 1  # Try + or - depending on scroll direction
 
 # Create list of power ups
-powerups = []
 
 # Create list of cherry bombs
 cherry_projectiles = []
@@ -448,10 +448,12 @@ hangry_donut_frames = load_frames("imgs/spritesheets/angry_donut_bear_spriteshee
 # Create players
 player1 = Player(200, GROUND_Y, bread_frames, hangry_bread_frames, "imgs/healthbar/bread.png", "bread", "right")
 player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "imgs/healthbar/donut.png", "donut", "left", weapon="gun", projectile_image="imgs/sprinkle_ammo.png")
+
 player1.set_opponents(player2)
 player2.set_opponents(player1)
 
-powerups = [Powerup(300, GROUND_Y, "cherry"), Powerup(600, GROUND_Y, "blueberry")]
+# powerups = [Powerup(300, GROUND_Y, "cherry"), Powerup(600, GROUND_Y, "blueberry")]
+powerups = []
 
 platforms = [
     Platform(100, 300, "imgs/platform.png", width=120, move_range=70, speed=.7),
@@ -572,15 +574,38 @@ def run_server_gameplay_loop(events):
     current_time = pygame.time.get_ticks()
     if current_time - last_spawn_time > SPAWN_POWERUP_INTERVAL:
         last_spawn_time = current_time
-        rand = random.randint(0, 1)
-        if rand == 0:
-            new_powerup = Powerup(-50, 435, "blueberry")
-        else:
-            new_powerup = Powerup(-50, 435, "cherry")
-        powerups.append(new_powerup)
+        print("in game loop, updated last_spawn_time: ", last_spawn_time)
 
-    # Update power-up positions
-    for powerup in list(powerups):
+        # Randomly spawn new power-up (0=blueberry, 1=cherry)
+        rand = random.randint(0, 1)
+        if (rand == 0):
+            # generate blueberry
+            new_powerup = Powerup(-50, 435, "blueberry")
+            # new_powerup = PowerUp(image=blueberry_img, start_x=-50)
+        if (rand == 1):
+            # generate cherry
+            new_powerup = Powerup(-50, 435, "cherry")
+            # new_powerup = PowerUp(image=cherry_img, start_x=-50)
+
+        # power_up_list.append(new_powerup)
+        powerups.append(new_powerup)
+        # print(powerups)
+        for powerup in powerups:
+            print(powerup.type)
+        # print(power_up_list)
+        # print(f"New power up position: ({new_powerup.x}, {new_powerup.y})")
+
+    # Draw players
+    player1.draw(screen)
+    player2.draw(screen)
+
+    # ensures they are drawn on top of players
+    for projectile in player1.projectiles:
+        projectile.draw(screen)
+    for projectile in player2.projectiles:
+        projectile.draw(screen)
+
+    for powerup in list(powerups):  # Iterate over a copy of the list
         powerup.check_collision(player1)
         powerup.check_collision(player2)
         powerup.update()
