@@ -3,15 +3,26 @@ import sys
 import time
 from player import Player, WIDTH, HEIGHT, GROUND_Y
 from button import Button
+import socket
+import threading
+import time
 
-# Initialize Pygame
+# === CONFIG ===
+SERVER_HOST = '0.0.0.0'
+SERVER_PORT = 10141
+#IP = "192.168.182.18"
+IP = "10.194.42.91"
+client_input = None
+client_conn = None
+
+# === INIT ===
 pygame.init()
-
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Hangry Bears")
 
 clock = pygame.time.Clock()
 start_time = time.time()
+is_host = False
 
 font = pygame.font.SysFont("Arial", 28)
 button_font = pygame.font.Font("fonts/silkscreen.ttf", 32)
@@ -22,82 +33,205 @@ button_height = 60
 arrow_cursor = pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW)
 hand_cursor = pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND)
 
-def title_screen():
+# === GLOBALS ===
+current_screen = "title"
+previous_screen = None
+running = True
+
+# Title screen globals
+title_bg = None
+start_button = None
+
+# Multiplayer options globals
+multiplayer_bg = None
+host_game_button = None
+join_game_button = None
+
+# Server lobby globals
+lobby_bg = None
+play_button = None
+
+# === SETUP FUNCTIONS ===
+
+def setup_title_screen():
+    global title_bg, start_button
     title_bg = pygame.image.load("imgs/ui/title-screen.png").convert()
-    title_bg = pygame.transform.scale(title_bg, (WIDTH, HEIGHT))
     start_button_x = (WIDTH - button_width) // 2
     start_button_y = HEIGHT - 340
-
     start_button = Button("Start Game", start_button_x, start_button_y, button_width, button_height, button_font)
-    
-    while True:
-        events = pygame.event.get()
-        for event in events:
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-        
-        screen.blit(title_bg, (0, 0))
-        
-        # Centralized cursor update:
-        mouse_pos = pygame.mouse.get_pos()
-        if start_button.rect.collidepoint(mouse_pos):
-            pygame.mouse.set_cursor(hand_cursor)
-        else:
-            pygame.mouse.set_cursor(arrow_cursor)
-        
-        # Draw the button.
-        start_button.draw(screen)
-        
-        # Check if the button was clicked.
-        if start_button.is_clicked(events):
-            return  # Exit title screen on button click.
-        
-        pygame.display.update()
-        clock.tick(60)
 
+def setup_multiplayer_options_screen():
+    global multiplayer_bg, host_game_button, join_game_button
+    multiplayer_bg = pygame.image.load("imgs/ui/multiplayer-options-screen.png").convert()
 
-def multiplayer_options_screen():
-    bg = pygame.image.load("imgs/ui/multiplayer-options-screen.png").convert()
-
-    host_game_button_x = join_game_button_x = (WIDTH - button_width) // 2
+    button_x = (WIDTH - button_width) // 2
     host_game_button_y = HEIGHT - 300
     join_game_button_y = HEIGHT - 230
-    host_game_button = Button("Host a Game", host_game_button_x, host_game_button_y, button_width, button_height, button_font)
-    join_game_button = Button("Join a Game", join_game_button_x, join_game_button_y, button_width, button_height, button_font)
 
+    host_game_button = Button("Host a Game", button_x, host_game_button_y, button_width, button_height, button_font)
+    join_game_button = Button("Join a Game", button_x, join_game_button_y, button_width, button_height, button_font)
+
+def setup_server_lobby_screen():
+    global lobby_bg, play_button
+    lobby_bg = pygame.image.load("imgs/ui/server-lobby-screen.png").convert()
+    play_button_x = (WIDTH - button_width) // 2
+    play_button_y = HEIGHT - 340
+    play_button = Button("Play Game", play_button_x, play_button_y, button_width, button_height, button_font)
+
+# === SCREEN RUN FUNCTIONS ===
+
+def run_title_screen(events):
+    global current_screen
+    screen.blit(title_bg, (0, 0))
+
+    mouse_pos = pygame.mouse.get_pos()
+    if start_button.rect.collidepoint(mouse_pos):
+        pygame.mouse.set_cursor(hand_cursor)
+    else:
+        pygame.mouse.set_cursor(arrow_cursor)
+
+    start_button.draw(screen)
+
+    if start_button.is_clicked(events):
+        current_screen = "multiplayer_options"
+
+def run_multiplayer_options_screen(events):
+    global is_host, current_screen
+    screen.blit(multiplayer_bg, (0, 0))
+
+    mouse_pos = pygame.mouse.get_pos()
+    if host_game_button.rect.collidepoint(mouse_pos) or join_game_button.rect.collidepoint(mouse_pos):
+        pygame.mouse.set_cursor(hand_cursor)
+    else:
+        pygame.mouse.set_cursor(arrow_cursor)
+
+    host_game_button.draw(screen)
+    join_game_button.draw(screen)
+
+    if host_game_button.is_clicked(events):
+        is_host = True
+        threading.Thread(target=initialize_server, daemon=True).start()
+        current_screen = "server_wait"
+    elif join_game_button.is_clicked(events):
+        threading.Thread(target=initialize_client, daemon=True).start()
+        current_screen = "client_wait"
+
+def run_server_lobby_screen(events):
+    global current_screen
+    screen.blit(lobby_bg, (0, 0))
+
+    mouse_pos = pygame.mouse.get_pos()
+    if play_button.rect.collidepoint(mouse_pos):
+        pygame.mouse.set_cursor(hand_cursor)
+    else:
+        pygame.mouse.set_cursor(arrow_cursor)
+
+    play_button.draw(screen)
+
+    if play_button.is_clicked(events):
+        current_screen = "server_gameplay"
+        if client_conn:
+            try:
+                client_conn.sendall(b"SWITCH_TO_GAMEPLAY\n")
+            except:
+                print("Failed to send mode switch to client.")
+
+def display_ui(screen_path):
+    bg = pygame.image.load(screen_path).convert()
+    screen.blit(bg, (0, 0))
+
+# === SERVER / CLIENT ===
+
+def handle_client(conn, addr):
+    print(f"Client connected: {addr}")
+    global client_input
     while True:
-        events = pygame.event.get()
-        for event in events:
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+        try:
+            data = conn.recv(1024)
+            if not data:
+                print("Client disconnected")
+                break
+            command = data.decode().strip()
+            print("Received:", command)
+            client_input = command  # ✅ store the latest input
+        except ConnectionResetError:
+            print("Connection lost")
+            break
+    conn.close()
 
-        screen.blit(bg, (0, 0))
-        
-        # Centralized cursor update for multiple buttons:
-        mouse_pos = pygame.mouse.get_pos()
-        if host_game_button.rect.collidepoint(mouse_pos) or join_game_button.rect.collidepoint(mouse_pos):
-            pygame.mouse.set_cursor(hand_cursor)
-        else:
-            pygame.mouse.set_cursor(arrow_cursor)
-        
-        # Draw both buttons.
-        host_game_button.draw(screen)
-        join_game_button.draw(screen)
-        
-        # Check for button clicks.
-        if host_game_button.is_clicked(events):
-            return  # Or handle hosting a game.
-        if join_game_button.is_clicked(events):
-            return  # Or handle joining a game.
-        
-        pygame.display.update()
-        clock.tick(60)
+def initialize_server():
+    server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_sock.bind((SERVER_HOST, SERVER_PORT))
+    server_sock.listen(1)
+    print(f"Server listening on {SERVER_HOST}:{SERVER_PORT}")
 
-title_screen()
-multiplayer_options_screen()
-pygame.mouse.set_cursor(arrow_cursor)
+    def accept_connection():
+        global current_screen, client_conn
+        conn, addr = server_sock.accept()
+        client_conn = conn  # ✅ store for sending game state
+        print("Client connected!")
+        current_screen = "server_lobby"
+        threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
+
+    threading.Thread(target=accept_connection, daemon=True).start()
+
+def initialize_client():
+    client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    connected = False
+
+    while not connected:
+        try:
+            client_sock.connect((IP, SERVER_PORT))
+            print("Connected to server.")
+            global current_screen
+            current_screen = "client_lobby"
+            connected = True
+        except Exception as e:
+            print("Failed to connect, retrying...", e)
+            time.sleep(1)
+
+    def send_input():
+        while True:
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_a]:
+                client_sock.sendall(b"MOVE_LEFT\n")
+            if keys[pygame.K_d]:
+                client_sock.sendall(b"MOVE_RIGHT\n")
+            if keys[pygame.K_w]:
+                client_sock.sendall(b"JUMP\n")
+            if keys[pygame.K_f]:
+                client_sock.sendall(b"ATTACK\n")
+            time.sleep(0.02)  # ~50 times per second
+
+    threading.Thread(target=send_input, daemon=True).start()
+
+    # Thread to receive game state from server
+    def receive_data():
+        while True:
+            try:
+                data = client_sock.recv(1024)
+                if not data:
+                    print("Disconnected from server")
+                    break
+
+                decoded_data = data.decode().strip()
+
+                if decoded_data == "SWITCH_TO_GAMEPLAY":
+                    global current_screen
+                    current_screen = "client_gameplay"
+                    print("Switching to client gameplay!")
+                else:
+                    # Assume game state update
+                    parse_game_state(decoded_data)
+
+            except Exception as e:
+                print("Error:", e)
+                break
+        client_sock.close()
+
+    threading.Thread(target=receive_data, daemon=True).start()
+
+# === GAME SETUP ===
 
 # Load profile pictures
 profile1 = pygame.image.load("imgs/bread_bear_profile.png").convert_alpha()
@@ -128,14 +262,40 @@ hangry_donut_frames = load_frames("imgs/spritesheets/angry_donut_bear_spriteshee
 
 # Create players
 player1 = Player(200, GROUND_Y, bread_frames, hangry_bread_frames, "imgs/healthbar/bread.png", "bread", "right")
-player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "imgs/healthbar/donut.png", "donut", "left", weapon="gun", projectile_image="imgs\sprinkle_ammo.png")
+player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "imgs/healthbar/donut.png", "donut", "left", weapon="gun", projectile_image="imgs/sprinkle_ammo.png")
 
-# Game loop
-while True:
-    clock.tick(60)
+def draw_gameplay_scene(surface):
+    surface.fill((240, 240, 240))
+    pygame.draw.rect(surface, (180, 180, 180), (0, GROUND_Y + 40, WIDTH, HEIGHT - GROUND_Y))
+
+    player1.draw(surface)
+    player2.draw(surface)
+
+    surface.blit(profile1, (20, HEIGHT - 80))
+    surface.blit(profile2, (WIDTH - 80, HEIGHT - 80))
+    player1.draw_health(surface, 90, HEIGHT - 60)
+    player2.draw_health(surface, WIDTH - 290, HEIGHT - 60)
+
+    elapsed_seconds = int(time.time() - start_time)
+    minutes = elapsed_seconds // 60
+    seconds = elapsed_seconds % 60
+    clock_text = font.render(f"{minutes:02}:{seconds:02}", True, (0, 0, 0))
+    clock_rect = clock_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+    surface.blit(clock_text, clock_rect)
+
+def run_client_gameplay_loop(events):
+    for event in events:
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+
+    draw_gameplay_scene(screen)
+
+
+def run_server_gameplay_loop(events):
     keys = pygame.key.get_pressed()
 
-    for event in pygame.event.get():
+    for event in events:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
@@ -145,7 +305,6 @@ while True:
             if event.key == pygame.K_f:
                 player2.attack()
 
-    # Update players
     player1.update(keys, pygame.K_LEFT, pygame.K_RIGHT, pygame.K_SPACE, pygame.K_l, player2)
     player2.update(keys, pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_f, player1)
     player1.check_attack_collision(player2)
@@ -154,25 +313,46 @@ while True:
     player1.update_mode()
     player2.update_mode()
 
-    screen.fill((240, 240, 240))
-    pygame.draw.rect(screen, (180, 180, 180), (0, GROUND_Y + 40, WIDTH, HEIGHT - GROUND_Y))
+    # ✅ Reuse draw function
+    draw_gameplay_scene(screen)
 
-    # Draw players
-    player1.draw(screen)
-    player2.draw(screen)
+# === MAIN GAME LOOP ===
 
-    # Health bars & profiles
-    screen.blit(profile1, (20, HEIGHT - 80))
-    screen.blit(profile2, (WIDTH - 80, HEIGHT - 80))
-    player1.draw_health(screen, 90, HEIGHT - 60)
-    player2.draw_health(screen, WIDTH - 290, HEIGHT - 60)
+while running:
+    events = pygame.event.get()
+    for event in events:
+        if event.type == pygame.QUIT:
+            running = False
 
-    # Game clock
-    elapsed_seconds = int(time.time() - start_time)
-    minutes = elapsed_seconds // 60
-    seconds = elapsed_seconds % 60
-    clock_text = font.render(f"{minutes:02}:{seconds:02}", True, (0, 0, 0))
-    clock_rect = clock_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
-    screen.blit(clock_text, clock_rect)
+    if current_screen != previous_screen:
+        if current_screen == "title":
+            setup_title_screen()
+        elif current_screen == "multiplayer_options":
+            setup_multiplayer_options_screen()
+        elif current_screen == "server_lobby":
+            setup_server_lobby_screen()
+        previous_screen = current_screen
 
-    pygame.display.flip()
+    if current_screen == "title":
+        run_title_screen(events)
+    elif current_screen == "multiplayer_options":
+        run_multiplayer_options_screen(events)
+    elif current_screen == "server_wait":
+        display_ui("imgs/ui/server-waiting-screen.png")
+    elif current_screen == "client_wait":
+        display_ui("imgs/ui/client-waiting-screen.png")
+    elif current_screen == "server_lobby":
+        run_server_lobby_screen(events)
+    elif current_screen == "client_lobby":
+        display_ui("imgs/ui/client-lobby-screen.png")
+    elif current_screen == "server_gameplay":
+        run_server_gameplay_loop(events)
+    elif current_screen == "client_gameplay":
+        run_client_gameplay_loop(events)
+
+    pygame.display.update()
+    clock.tick(60)
+
+pygame.mouse.set_cursor(arrow_cursor)
+pygame.quit()
+sys.exit()
