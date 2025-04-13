@@ -13,6 +13,29 @@ import socket
 import threading
 import pickle
 import time
+from moviepy.editor import VideoFileClip
+
+play_intro_video = False
+
+def play_video(video_path):
+    clip = VideoFileClip(video_path)
+
+    # Resize the clip to match your screen size
+    clip = clip.resize((WIDTH, HEIGHT))
+
+    for frame in clip.iter_frames(fps=clip.fps, dtype="uint8"):
+        # Convert frame to pygame surface
+        frame_surface = pygame.surfarray.make_surface(frame.swapaxes(0, 1))
+        screen.blit(frame_surface, (0, 0))
+        pygame.display.update()
+        clock.tick(clip.fps)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+    clip.close()
 
 # === CONFIG ===
 SERVER_HOST = '0.0.0.0'
@@ -152,7 +175,6 @@ def run_server_lobby_screen(events):
     play_button.draw(screen)
 
     if play_button.is_clicked(events):
-        current_screen = "server_gameplay"
         if client_conn:
             try:
                 command = b"CMD:SWITCH_TO_GAMEPLAY\n"
@@ -160,6 +182,9 @@ def run_server_lobby_screen(events):
                 client_conn.sendall(length + command)
             except:
                 print("Failed to send mode switch to client.")
+        play_video("imgs/main.mp4")
+        current_screen = "server_gameplay"
+            
 
 def run_winner_screen(events):
     global current_screen, winner_player_number
@@ -320,9 +345,9 @@ def initialize_client():
                 if message.startswith(b"CMD:"):
                     command = message[4:].decode().strip()
                     if command == "SWITCH_TO_GAMEPLAY":
-                        global current_screen
-                        current_screen = "client_gameplay"
-                        print("Switching to client gameplay!")
+                        global play_intro_video
+                        play_intro_video = True
+                        print("Client received command: play intro video!")
                     elif command == "PLAYER1_WINS":
                         winner_player_number = 1
                         current_screen = "winner"
@@ -374,11 +399,6 @@ def initialize_client():
                                     platforms[i].direction = platform_data["direction"]
                                     # You can update more if needed, e.g., speed, etc.
 
-
-                            # Cherry Bombs
-                            cherry_projectiles.clear()
-                            for cherry_data in game_state.get("cherry_bombs", []):
-                                cherry_projectiles.append(CherryProjectile.deserialize(cherry_data))
                     except Exception as e:
                         print("Error:", e)
                         break
@@ -425,9 +445,6 @@ Powerup.scroll_speed = 1  # Try + or - depending on scroll direction
 
 # Create list of power ups
 
-# Create list of cherry bombs
-cherry_projectiles = []
-
 # Spawn timing config for power ups
 SPAWN_POWERUP_INTERVAL = 7000  # milliseconds (every 7 seconds)
 last_spawn_time = pygame.time.get_ticks()
@@ -449,9 +466,8 @@ hangry_donut_frames = load_frames("imgs/spritesheets/angry_donut_bear_spriteshee
 player1 = Player(200, GROUND_Y, bread_frames, hangry_bread_frames, "imgs/healthbar/bread.png", "bread", "right")
 player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "imgs/healthbar/donut.png", "donut", "left", weapon="gun", projectile_image="imgs/sprinkle_ammo.png")
 
-# Define opponents
-player1.opponents = ([player2])
-player2.opponents = ([player1])
+player1.set_opponents([player2])
+player2.set_opponents([player1])
 
 # powerups = [Powerup(300, GROUND_Y, "cherry"), Powerup(600, GROUND_Y, "blueberry")]
 powerups = []
@@ -493,9 +509,6 @@ def draw_gameplay_scene(surface):
     for platform in platforms:
         platform.draw(surface)
     
-    for bomb in cherry_projectiles:
-        bomb.draw(surface)
-
     # Health bars & profiles
     surface.blit(profile1, (20, HEIGHT - 80))
     surface.blit(profile2, (WIDTH - 80, HEIGHT - 80))
@@ -506,32 +519,18 @@ def draw_gameplay_scene(surface):
     player1.draw_powerup(surface, 90, HEIGHT - 30, is_player1=True)
     player2.draw_powerup(surface, WIDTH - 90, HEIGHT - 30, is_player1=False)
 
-    # Draw timer
-    elapsed_seconds = int(time.time() - start_time)
-    minutes = elapsed_seconds // 60
-    seconds = elapsed_seconds % 60
-    clock_text = font.render(f"{minutes:02}:{seconds:02}", True, (0, 0, 0))
-    clock_rect = clock_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
-    surface.blit(clock_text, clock_rect)
-
 
 def run_client_gameplay_loop(events):
-    global cherry_projectiles
-
     for event in events:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
 
-    for bomb in cherry_projectiles:
-        bomb.update([player1, player2])
-    cherry_projectiles = [bomb for bomb in cherry_projectiles if bomb.show_explosion or not bomb.exploded]
-
     draw_gameplay_scene(screen)
 
 
 def run_server_gameplay_loop(events):
-    global cherry_projectiles, powerups, scroll_x, last_spawn_time
+    global powerups, scroll_x, last_spawn_time
     global current_screen, winner_player_number
 
     keys = pygame.key.get_pressed()
@@ -617,12 +616,6 @@ def run_server_gameplay_loop(events):
         platform.check_collision(player1)
         platform.check_collision(player2)
 
-    # Update cherry bombs
-    for bomb in cherry_projectiles:
-        bomb.update([player1, player2])
-    cherry_projectiles = [bomb for bomb in cherry_projectiles if bomb.show_explosion or not bomb.exploded]
-
-
     draw_gameplay_scene(screen)
     
     if player1.health <= 0 or player2.health <= 0:
@@ -651,8 +644,7 @@ def run_server_gameplay_loop(events):
                 "projectiles": [p.serialize() for p in player1.projectiles + player2.projectiles],
                 "power_ups": [p.serialize() for p in powerups],
                 "scroll_x": scroll_x,
-                "platforms": [platform.serialize() for platform in platforms],
-                "cherry_bombs": [bomb.serialize() for bomb in cherry_projectiles],
+                "platforms": [platform.serialize() for platform in platforms]
             }
 
             payload = pickle.dumps(game_state)
@@ -667,6 +659,12 @@ def run_server_gameplay_loop(events):
 
 while running:
     events = pygame.event.get()
+
+    if play_intro_video:
+        play_video("imgs/main.mp4")
+        play_intro_video = False
+        current_screen = "client_gameplay"
+
     for event in events:
         if event.type == pygame.QUIT:
             running = False
@@ -703,7 +701,6 @@ while running:
         run_client_gameplay_loop(events)
     elif current_screen == "winner":
         run_winner_screen(events)
-
 
     pygame.display.update()
     clock.tick(60)
