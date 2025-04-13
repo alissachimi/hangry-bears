@@ -71,7 +71,19 @@ class Player:
         self.walk_frames = {"left": [2, 3, 4], "right": [7, 8, 9]}
         self.attack_frames = {"left": [1, 0, 1, 0], "right": [6, 5, 6, 5]}
 
-    def update(self, keys, key_left, key_right, key_jump, key_attack):
+    def get_hitbox(self):
+        width = self.image.get_width()
+        height = self.image.get_height()
+
+        hitbox_width = int(width * 0.6)
+        hitbox_height = height
+
+        offset_x = (width - hitbox_width) // 2
+        offset_y = (height - hitbox_height) // 2
+
+        return pygame.Rect(self.x + offset_x, self.y + offset_y, hitbox_width, hitbox_height)
+
+    def update(self, keys, key_left, key_right, key_jump, key_attack, opponent):
         self.tick += 1
 
         if self.state == "attacking":
@@ -104,7 +116,12 @@ class Player:
         if keys[key_jump] and self.on_ground:
             self.y_vel = self.jump_strength
 
-        self.x += dx
+        future_hitbox = self.get_hitbox().move(dx, 0)
+
+        # If no collision with opponent, move
+        if not future_hitbox.colliderect(opponent.get_hitbox()):
+            self.x += dx
+
         self.y_vel += self.gravity
         self.y += self.y_vel
 
@@ -165,8 +182,9 @@ while True:
             sys.exit()
 
     # Update players
-    player1.update(keys, pygame.K_LEFT, pygame.K_RIGHT, pygame.K_SPACE, pygame.K_r)
-    player2.update(keys, pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_f)
+    player1.update(keys, pygame.K_LEFT, pygame.K_RIGHT, pygame.K_SPACE, pygame.K_r, player2)
+    player2.update(keys, pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_f, player1)
+
 
     screen.fill((240, 240, 240))
     pygame.draw.rect(screen, (180, 180, 180), (0, GROUND_Y + 40, WIDTH, HEIGHT - GROUND_Y))
