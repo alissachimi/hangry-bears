@@ -37,14 +37,14 @@ def load_frames(path):
         for i in range(10)
     ]
 
-bread_frames = load_frames("imgs/bread_bear_spritesheet.png")
-donut_frames = load_frames("imgs/donut_bear_spritesheet.png")
-hangry_bread_frames = load_frames("imgs/angry_bread_bear_spritesheet.png")
-hangry_donut_frames = load_frames("imgs/angry_donut_bear_spritesheet.png")
+bread_frames = load_frames("imgs/spritesheets/bread_bear_spritesheet.png")
+donut_frames = load_frames("imgs/spritesheets/donut_bear_spritesheet.png")
+hangry_bread_frames = load_frames("imgs/spritesheets/angry_bread_bear_spritesheet.png")
+hangry_donut_frames = load_frames("imgs/spritesheets/angry_donut_bear_spritesheet.png")
 
 # Create players
 player1 = Player(200, GROUND_Y, bread_frames, hangry_bread_frames, "imgs/healthbar/bread.png", "bread", "right")
-player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "imgs/healthbar/bread.png", "donut", "left", weapon="gun", projectile_image="imgs\sprinkle_ammo.png")
+player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "imgs/healthbar/donut.png", "donut", "left", weapon="gun", projectile_image="imgs\sprinkle_ammo.png")
 
 # Game loop
 while True:
@@ -67,7 +67,8 @@ while True:
     player1.check_attack_collision(player2)
     player2.check_attack_collision(player1)
 
-
+    player1.update_mode()
+    player2.update_mode()
 
     screen.fill((240, 240, 240))
     pygame.draw.rect(screen, (180, 180, 180), (0, GROUND_Y + 40, WIDTH, HEIGHT - GROUND_Y))
@@ -75,12 +76,6 @@ while True:
     # Draw players
     player1.draw(screen)
     player2.draw(screen)
-
-    # Enter hangry mode if health drops to less than 25
-    if player1.health < 25:
-        player1.enter_hangry_mode()
-    if player2.health < 25:
-        player2.enter_hangry_mode()
 
     # Health bars & profiles
     screen.blit(profile1, (20, HEIGHT - 80))

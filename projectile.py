@@ -1,7 +1,7 @@
 import pygame
 
 class Projectile:
-    def __init__(self, x, y, direction, image_path, speed=6):
+    def __init__(self, x, y, direction, image_path, damage, speed=6):
         self.image = pygame.image.load(image_path).convert_alpha()
         
         # scale down projectile, but keep same aspect ratio
@@ -14,6 +14,7 @@ class Projectile:
 
         self.rect = self.image.get_rect(center=(x, y))
         self.speed = speed if direction == "right" else -speed
+        self.damage = damage
         self.direction = direction
 
     def update(self):
@@ -21,6 +22,9 @@ class Projectile:
 
     def draw(self, surface):
         surface.blit(self.image, self.rect.topleft)
+
+    def collides_with(self, target_rect):
+        return self.rect.colliderect(target_rect)
 
     def off_screen(self, width):
         return self.rect.right < 0 or self.rect.left > width

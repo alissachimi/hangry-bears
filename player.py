@@ -20,7 +20,9 @@ class Player:
         self.attack_timer = 0
         self.name=name
         self.damage_cooldown = 0
-        self.is_hangry = False
+        self.is_hangry = False  
+        self.normal_frames = frames
+        self.flash_timer = 0 
 
         self.y_vel = 0
         self.gravity = 0.5
@@ -61,9 +63,12 @@ class Player:
     def check_attack_collision(self, opponent):
         if opponent.state == "attacking" and self.get_hitbox().colliderect(opponent.get_hitbox()):
             if self.damage_cooldown == 0:
-                self.health -= 10
-                print(self.health)
-                self.damage_cooldown = 30
+                self.take_damage(10)
+
+    def take_damage(self, amount):
+        self.health -= amount
+        self.flash_timer = 10
+        self.damage_cooldown = 30 
 
     def update(self, keys, key_left, key_right, key_jump, key_attack, opponent):
         self.tick += 1
@@ -71,10 +76,17 @@ class Player:
         # Update projectiles
         for projectile in self.projectiles:
             projectile.update()
+            if projectile.collides_with(opponent.get_hitbox()):
+                opponent.take_damage(projectile.damage)
+                self.projectiles.remove(projectile)
+
         self.projectiles = [p for p in self.projectiles if not p.off_screen(WIDTH)]
 
         if self.damage_cooldown > 0:
             self.damage_cooldown -= 1
+        
+        if self.flash_timer > 0:
+            self.flash_timer -= 1
 
         if self.state == "attacking":
             frame_duration = 10 if self.is_hangry else 3
@@ -91,7 +103,7 @@ class Player:
                         proj_x = self.x + self.image.get_width()
                     else:
                         proj_x = self.x
-                    bullet = Projectile(proj_x, center_y, self.direction, self.projectile_image)
+                    bullet = Projectile(proj_x, center_y, self.direction, self.projectile_image, 5)
                     self.projectiles.append(bullet)
                 self.state = "idle"
                 self.attack_timer = 0
@@ -139,7 +151,13 @@ class Player:
 
 
     def draw(self, surface):
-        surface.blit(self.image, (self.x, self.y))
+        if self.flash_timer > 0:
+            flash_image = self.image.copy()
+            flash_image.fill((255, 0, 0, 100), special_flags=pygame.BLEND_RGBA_MULT)
+            surface.blit(flash_image, (self.x, self.y))
+        else:
+            surface.blit(self.image, (self.x, self.y))
+        
         for projectile in self.projectiles:
             projectile.draw(surface)
 
@@ -156,6 +174,12 @@ class Player:
             elif i == current and remainder > 0:
                 surface.blit(self.half_icon_img, pos)
     
+    def update_mode(self):
+        if self.health < 25 and not self.is_hangry:
+            self.enter_hangry_mode()
+        elif self.health >= 25 and self.is_hangry:
+            self.exit_hangry_mode()
+
     def enter_hangry_mode(self):
         self.is_hangry = True
         self.frames = self.hangry_frames
@@ -170,4 +194,12 @@ class Player:
             self.weapon="gun"
         if self.name=="donut":
             self.projectile_image="imgs\healthbar\donut.png"
+    
+    def exit_hangry_mode(self):
+        self.is_hangry = False
+        self.frames = self.normal_frames
+        self.attack_frames = {"left": [1, 0, 1, 0], "right": [6, 5, 6, 5]}
+        self.stand_frames = {"left": 3, "right": 8}
+        self.walk_frames = {"left": [2, 3, 4], "right": [7, 8, 9]}
+        self.vel = 3  # back to normal speed
 
