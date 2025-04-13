@@ -39,15 +39,17 @@ def load_frames(path):
         for i in range(10)
     ]
 
-bread_frames = load_frames("imgs/angry_bear_spritesheet.png")
+bread_frames = load_frames("imgs/bread_bear_spritesheet.png")
 donut_frames = load_frames("imgs/donut_bear_spritesheet.png")
+hangry_bread_frames = load_frames("imgs/angry_bear_spritesheet.png")
 
 # Player class
 class Player:
-    def __init__(self, x, y, frames, direction="right"):
+    def __init__(self, x, y, frames, hangry_frames, direction="right"):
         self.x = x
         self.y = y
         self.frames = frames
+        self.hangry_frames = hangry_frames
         self.vel = 3
         self.direction = direction
         self.frame_index = 0
@@ -71,8 +73,9 @@ class Player:
         self.tick += 1
 
         if self.state == "attacking":
-            if self.attack_timer < len(self.attack_frames[self.direction]) * 5:
-                idx = self.attack_timer // 5
+            frame_duration = 10 if self.is_hangry else 3
+            if self.attack_timer < len(self.attack_frames[self.direction]) * frame_duration:
+                idx = self.attack_timer // frame_duration
                 self.image = self.frames[self.attack_frames[self.direction][idx]]
                 self.attack_timer += 1
             else:
@@ -135,10 +138,19 @@ class Player:
         for i in range(hearts):
             if i < current:
                 surface.blit(icon_img, (x + i * 35, y))
+    
+    def enter_hangry_mode(self):
+        self.is_hangry = True
+        self.frames = self.hangry_frames
+        self.attack_frames = {"left": [1, 0], "right": [6, 5]}
+        self.stand_frames = {"left": 3, "right": 8}  # if different, change accordingly
+        self.walk_frames = {"left": [2, 3, 4], "right": [7, 8, 9]}  # or hangry versions
+        self.vel = 4  # maybe make him faster?
+
 
 # Create players
-player1 = Player(200, GROUND_Y, bread_frames, "right")
-player2 = Player(500, GROUND_Y, donut_frames, "left")
+player1 = Player(200, GROUND_Y, bread_frames, hangry_bread_frames, "right")
+player2 = Player(500, GROUND_Y, donut_frames, hangry_bread_frames, "left")
 
 # Game loop
 while True:
@@ -164,6 +176,7 @@ while True:
     # Health bars & profiles
     screen.blit(profile1, (20, HEIGHT - 80))
     player1.draw_health(screen, 90, HEIGHT - 60, "imgs/healthbar/bread.png")
+    player1.enter_hangry_mode()
 
 
     screen.blit(profile2, (WIDTH - 80, HEIGHT - 80))
