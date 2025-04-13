@@ -60,6 +60,7 @@ class Player:
         self.state = "idle"
         self.attack_timer = 0
         self.damage_cooldown = 0
+        self.is_hangry = False
 
         self.y_vel = 0
         self.gravity = 0.5
@@ -213,14 +214,16 @@ while True:
     player1.draw(screen)
     player2.draw(screen)
 
+    # Enter hangry mode if health drops to less than 25
+    if player1.health < 25:
+        player1.enter_hangry_mode()
+    if player2.health < 25:
+        player2.enter_hangry_mode()
+
     # Health bars & profiles
     screen.blit(profile1, (20, HEIGHT - 80))
-    player1.draw_health(screen, 90, HEIGHT - 60)
-    player1.enter_hangry_mode()
-    player2.enter_hangry_mode()
-
-
     screen.blit(profile2, (WIDTH - 80, HEIGHT - 80))
+    player1.draw_health(screen, 90, HEIGHT - 60)
     player2.draw_health(screen, WIDTH - 290, HEIGHT - 60)
 
     # Game clock
