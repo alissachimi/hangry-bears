@@ -1,7 +1,8 @@
 import pygame
 import sys
 import time
-from player import Player, WIDTH, HEIGHT, GROUND_Y
+from player import Player, WIDTH, HEIGHT, GROUND_Y, load_frames
+from powerup import Powerup
 
 # Initialize Pygame
 pygame.init()
@@ -22,21 +23,6 @@ profile_size = (80, 80)
 profile1 = pygame.transform.scale(profile1, profile_size)
 profile2 = pygame.transform.scale(profile2, profile_size)
 
-# Load and process spritesheets
-def load_frames(path):
-    spritesheet = pygame.image.load(path).convert_alpha()
-    frame_w = spritesheet.get_width() // 10
-    frame_h = spritesheet.get_height()
-    desired_w = int(frame_w * 0.2)
-    desired_h = int(frame_h * 0.2)
-    return [
-        pygame.transform.smoothscale(
-            spritesheet.subsurface(pygame.Rect(i * frame_w, 0, frame_w, frame_h)),
-            (desired_w, desired_h)
-        )
-        for i in range(10)
-    ]
-
 bread_frames = load_frames("imgs/spritesheets/bread_bear_spritesheet.png")
 donut_frames = load_frames("imgs/spritesheets/donut_bear_spritesheet.png")
 hangry_bread_frames = load_frames("imgs/spritesheets/angry_bread_bear_spritesheet.png")
@@ -45,6 +31,8 @@ hangry_donut_frames = load_frames("imgs/spritesheets/angry_donut_bear_spriteshee
 # Create players
 player1 = Player(200, GROUND_Y, bread_frames, hangry_bread_frames, "imgs/healthbar/bread.png", "bread", "right")
 player2 = Player(500, GROUND_Y, donut_frames, hangry_donut_frames, "imgs/healthbar/donut.png", "donut", "left", weapon="gun", projectile_image="imgs\sprinkle_ammo.png")
+# List of powerups
+powerups = [Powerup(300, GROUND_Y, "cherry"), Powerup(600, GROUND_Y, "blueberry")]
 
 # Game loop
 while True:
@@ -61,7 +49,6 @@ while True:
             if event.key == pygame.K_f:
                 player2.attack()
 
-    # Update players
     player1.update(keys, pygame.K_LEFT, pygame.K_RIGHT, pygame.K_SPACE, pygame.K_r, player2)
     player2.update(keys, pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_f, player1)
     player1.check_attack_collision(player2)
@@ -70,8 +57,17 @@ while True:
     player1.update_mode()
     player2.update_mode()
 
+    # THIS IS THE GROUND.  RENDER OUT EVERYTHING ELSE ON TOP OF THIS!!!
     screen.fill((240, 240, 240))
     pygame.draw.rect(screen, (180, 180, 180), (0, GROUND_Y + 40, WIDTH, HEIGHT - GROUND_Y))
+
+        # --- In your main loop ---
+    for powerup in list(powerups):  # Iterate over a copy of the list
+        powerup.check_collision(player1)
+        powerup.check_collision(player2)
+        powerup.draw(screen)
+        if powerup.collected:
+            powerups.remove(powerup) # Remove the collected powerup
 
     # Draw players
     player1.draw(screen)
@@ -82,6 +78,8 @@ while True:
     screen.blit(profile2, (WIDTH - 80, HEIGHT - 80))
     player1.draw_health(screen, 90, HEIGHT - 60)
     player2.draw_health(screen, WIDTH - 290, HEIGHT - 60)
+    player1.draw_powerup_timer(screen, 90, HEIGHT - 90)
+    player2.draw_powerup_timer(screen, WIDTH - 290, HEIGHT - 90)
 
     # Game clock
     elapsed_seconds = int(time.time() - start_time)
