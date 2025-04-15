@@ -43,6 +43,7 @@ class Player:
         self.flash_mode = None  # can be 'rainbow' or None
         self.opponents = None
         self.powerup=None
+        self.last_powerup = None  # for optimizing sprite updates
         
         self.initial_weapon = weapon
         self.initial_projectile_image = projectile_image
@@ -127,7 +128,7 @@ class Player:
                     self.projectiles.remove(projectile)
 
 
-        self.projectiles = [p for p in self.projectiles if ((hasattr(p, 'collides_with') and not p.off_screen(WIDTH)) or ((hasattr(p, 'exploded')) and not p.exploded) or ((hasattr(p, 'show_explosion')) and p.show_explosion))]
+        self.projectiles = [p for p in self.projectiles if not p.should_remove()]
 
         if self.damage_cooldown > 0:
             self.damage_cooldown -= 1
@@ -192,7 +193,6 @@ class Player:
             self.image = self.frames[frame]
         elif self.state == "idle":
             self.image = self.frames[self.stand_frames[self.direction]]
-
 
     def attack(self):
         if self.weapon == "gun" and "cherry" in self.projectile_image:
@@ -420,14 +420,20 @@ class Player:
 
     def serialize(self):
         return {
-                "x": self.x,
-                "y": self.y,
-                "vel": self.vel,
-                "state": self.state,
-                "direction": self.direction,
-                "health": self.health,
-                "flash_timer": self.flash_timer,
-                "damage_cooldown": self.damage_cooldown
+            "x": self.x,
+            "y": self.y,
+            "vel": self.vel,
+            "state": self.state,
+            "direction": self.direction,
+            "health": self.health,
+            "flash_timer": self.flash_timer,
+            "flash_mode": self.flash_mode,
+            "damage_cooldown": self.damage_cooldown,
+            "is_hangry": self.is_hangry,
+            "weapon": self.weapon,
+            "projectile_image": self.projectile_image,
+            "powerup": self.powerup,
+            "powerup_timer": self.powerup_timer
         }
 
     def deserialize(self, data):
@@ -438,7 +444,34 @@ class Player:
         self.direction = data["direction"]
         self.health = data["health"]
         self.flash_timer = data.get("flash_timer", 0)
+        self.flash_mode = data.get("flash_mode", None)
         self.damage_cooldown = data.get("damage_cooldown", 0)
+        self.is_hangry = data.get("is_hangry", False)
+        self.weapon = data.get("weapon", None)
+        self.projectile_image = data.get("projectile_image", None)
+        self.powerup_timer = data.get("powerup_timer", 0)
+
+        # Detect powerup change and update only if necessary
+        incoming_powerup = data.get("powerup", None)
+        if incoming_powerup != self.last_powerup:
+            self.last_powerup = incoming_powerup
+            self.powerup = incoming_powerup
+            if incoming_powerup in ("cherry", "blueberry"):
+                self.apply_powerup_sprite(incoming_powerup)
+            else:
+                self.frames = self.default_frames  # fallback
         self.tick += 1
+        self.refresh_sprite()
+
+    def apply_powerup_sprite(self, powerup):
+        if self.is_hangry:
+            spritesheet_url = f"imgs/spritesheets/{powerup.upper()}_angry_{self.name}_bear_spritesheet.png"
+        else:
+            spritesheet_url = f"imgs/spritesheets/{powerup.upper()}_{self.name}_bear_spritesheet.png"
+        self.frames = load_frames(spritesheet_url)
+        self.projectile_image = f"imgs/powerups/{powerup}-ammo.png"
+        self.weapon = "gun"
+        self.attack_frames = {"left": [1, 0], "right": [6, 5]}
+
 
 

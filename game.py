@@ -1,7 +1,5 @@
 import pygame # type: ignore
 import sys
-import time
-from conveyor_belt import ConveyorObject
 from conveyor_belt import ConveyorObject
 from player import Player, WIDTH, HEIGHT, GROUND_Y, load_frames
 from powerup import Powerup
@@ -9,38 +7,18 @@ import random
 from plat import Platform
 from button import Button
 from projectile import Projectile
+from cherry_bomb import CherryProjectile
 import socket
 import threading
 import pickle
 import time
 from moviepy.editor import VideoFileClip
 
-play_intro_video = False
-
-def play_video(video_path):
-    clip = VideoFileClip(video_path)
-
-    # Resize the clip to match your screen size
-    clip = clip.resize((WIDTH, HEIGHT))
-
-    for frame in clip.iter_frames(fps=clip.fps, dtype="uint8"):
-        # Convert frame to pygame surface
-        frame_surface = pygame.surfarray.make_surface(frame.swapaxes(0, 1))
-        screen.blit(frame_surface, (0, 0))
-        pygame.display.update()
-        clock.tick(clip.fps)
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-
-    clip.close()
-
 # === CONFIG ===
 SERVER_HOST = '0.0.0.0'
 SERVER_PORT = 10141
-IP = "10.7.201.185"
+IP = "10.194.40.60"
+#IP = "10.7.190.196"
 client_input = None
 client_conn = None
 
@@ -182,7 +160,7 @@ def run_server_lobby_screen(events):
                 client_conn.sendall(length + command)
             except:
                 print("Failed to send mode switch to client.")
-        play_video("imgs/main.mp4")
+        #play_video("imgs/main.mp4")
         current_screen = "server_gameplay"
             
 
@@ -373,21 +351,29 @@ def initialize_client():
                             player1.projectiles.clear()
                             player2.projectiles.clear()
                             for proj_data in game_state.get("projectiles", []):
-                                if "image_path" in proj_data and "bread" in proj_data["image_path"]:
-                                    player1.projectiles.append(Projectile.create_projectile_from_data(proj_data))
+                                proj_type = proj_data.get("type", "normal")  # fallback to 'normal' if missing
+
+                                if proj_type == "cherry":
+                                    projectile = CherryProjectile.deserialize(proj_data)
                                 else:
-                                    player2.projectiles.append(Projectile.create_projectile_from_data(proj_data))
+                                    projectile = Projectile.create_projectile_from_data(proj_data)
+
+                                # Use image_path to decide owner (optional fallback)
+                                if "bread" in proj_data.get("image_path", ""):
+                                    player1.projectiles.append(projectile)
+                                else:
+                                    player2.projectiles.append(projectile)
 
                             # Conveyor belt scroll
                             scroll_x = game_state.get("scroll_x", 0)
 
-
                             incoming_powerup_data = game_state.get("power_ups", [])
-                            for i, powerup_data in enumerate(incoming_powerup_data):
-                                if i < len(powerups):
-                                    powerups[i].update_from_data(powerup_data)
-                                else:
-                                    powerups.append(Powerup.deserialize(powerup_data))
+                            powerups.clear()
+                            for powerup_data in incoming_powerup_data:
+                                powerup = Powerup.deserialize(powerup_data)
+                                if powerup:
+                                    powerups.append(powerup)
+
 
 
                             # Platforms
@@ -396,8 +382,8 @@ def initialize_client():
                                 if i < len(platforms):
                                     platforms[i].rect.x = platform_data["x"]
                                     platforms[i].rect.y = platform_data["y"]
-                                    platforms[i].direction = platform_data["direction"]
-                                    # You can update more if needed, e.g., speed, etc.
+                                else:
+                                    platforms.append(Platform.deserialize(platform_data))
 
                     except Exception as e:
                         print("Error:", e)
@@ -420,6 +406,28 @@ def reset_game():
     player2.reset_state()
 
 # === GAME SETUP ===
+
+play_intro_video = False
+
+def play_video(video_path):
+    clip = VideoFileClip(video_path)
+
+    # Resize the clip to match your screen size
+    clip = clip.resize((WIDTH, HEIGHT))
+
+    for frame in clip.iter_frames(fps=clip.fps, dtype="uint8"):
+        # Convert frame to pygame surface
+        frame_surface = pygame.surfarray.make_surface(frame.swapaxes(0, 1))
+        screen.blit(frame_surface, (0, 0))
+        pygame.display.update()
+        clock.tick(clip.fps)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+    clip.close()
 
 # Load playing stage
 stage = pygame.image.load("imgs/stages/stage.png").convert()
@@ -489,10 +497,6 @@ def draw_gameplay_scene(surface):
     # Draw conveyor belt
     surface.blit(conveyor_belt, (scroll_x, belt_y_axis))
     surface.blit(conveyor_belt, (scroll_x - conveyor_belt.get_width(), belt_y_axis))
-
-    # Draw power-ups
-    for obj in powerups:
-        obj.draw(surface)
 
     # Draw players
     player1.draw(surface)
@@ -589,19 +593,6 @@ def run_server_gameplay_loop(events):
             new_powerup = Powerup(-50, 435, "cherry")
 
         powerups.append(new_powerup)
-        # for powerup in powerups:
-        #     print(powerup.type)
-        # print(f"New power up position: ({new_powerup.x}, {new_powerup.y})")
-
-    # Draw players
-    player1.draw(screen)
-    player2.draw(screen)
-
-    # ensures they are drawn on top of players
-    for projectile in player1.projectiles:
-        projectile.draw(screen)
-    for projectile in player2.projectiles:
-        projectile.draw(screen)
 
     for powerup in list(powerups):  # Iterate over a copy of the list
         powerup.check_collision(player1)
@@ -634,8 +625,6 @@ def run_server_gameplay_loop(events):
                 print("Failed to send winner message:", e)
         return
 
-
-
     if client_conn:
         try:
             game_state = {
@@ -661,7 +650,7 @@ while running:
     events = pygame.event.get()
 
     if play_intro_video:
-        play_video("imgs/main.mp4")
+        #play_video("imgs/main.mp4")
         play_intro_video = False
         current_screen = "client_gameplay"
 

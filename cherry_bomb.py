@@ -50,6 +50,7 @@ class CherryProjectile:
                     self.explosion_frame += 1
                     if self.explosion_frame >= self.explosion_max_frames:
                         self.show_explosion = False  # animation done
+
             
     def explode(self, players=None):
         self.exploded = True
@@ -66,11 +67,13 @@ class CherryProjectile:
                     player.take_damage(20)
 
     def draw(self, surface):
-
         if self.visible and not self.exploded:
+            print("Drawing cherry bomb at", self.rect.topleft)
             surface.blit(self.image, self.rect.topleft)
         elif self.show_explosion and self.explosion_frame < len(self.explosion_frames):
+            print("Drawing explosion frame", self.explosion_frame)
             surface.blit(self.explosion_frames[self.explosion_frame], self.explosion_rect.topleft)
+
     
     def load_explosion_frames(self, spritesheet_path, frame_count):
         spritesheet = pygame.image.load(spritesheet_path).convert_alpha()
@@ -86,8 +89,12 @@ class CherryProjectile:
             for i in range(frame_count)
         ]
 
+    def should_remove(self):
+        return self.exploded and not self.show_explosion
+
     def serialize(self):
         return {
+            "type": "cherry",  # crucial for the client to identify it
             "x": self.rect.centerx,
             "y": self.rect.centery,
             "timer": self.timer,
@@ -98,6 +105,7 @@ class CherryProjectile:
             "explosion_tick": self.explosion_tick,
             "show_explosion": self.show_explosion,
         }
+
         
     @staticmethod
     def deserialize(data):
@@ -109,10 +117,7 @@ class CherryProjectile:
         obj.explosion_frame = data["explosion_frame"]
         obj.explosion_tick = data["explosion_tick"]
         obj.show_explosion = data["show_explosion"]
-
-        # Recalculate explosion rect if exploded
-        if obj.exploded:
-            obj.explosion_rect = obj.explosion_frames[0].get_rect(center=obj.rect.center)
+        #print("Deserialized cherry:", data)
+        obj.explosion_rect = obj.explosion_frames[0].get_rect(center=obj.rect.center)
 
         return obj
-

@@ -1,5 +1,7 @@
 import pygame # type: ignore
 
+WIDTH = 1000
+
 class Projectile:
     def __init__(self, x, y, direction, image_path, damage, speed=6):
         self.image = pygame.image.load(image_path).convert_alpha()
@@ -28,6 +30,9 @@ class Projectile:
 
     def off_screen(self, width):
         return self.rect.right < 0 or self.rect.left > width
+
+    def should_remove(self):
+        return self.off_screen(WIDTH)
 
     @staticmethod
     def create_projectile_from_data(data):

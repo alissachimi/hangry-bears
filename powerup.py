@@ -1,25 +1,31 @@
-import pygame # type: ignore
-import random
-#import sound
+import pygame  # type: ignore
 
 class Powerup:
+    scroll_speed = 1  # Class-level scroll speed (can be set externally)
+    image_cache = {}  # Cache to prevent reloading images multiple times
+    valid_types = {"cherry", "blueberry", "pretzel"}  # Extend this as needed
+
     def __init__(self, x, y, type):
+        if type not in Powerup.valid_types:
+            raise ValueError(f"Invalid powerup type: {type}")
+
         self.x = x
         self.y = y
-        self.type = type  # "cherry" or "blueberry"
-        self.image = pygame.image.load(f"imgs\powerups\{type}.png").convert_alpha()
-        
-        # scale down projectile, but keep same aspect ratio
-        desired_height = 30
-        original_width = self.image.get_width()
-        original_height = self.image.get_height()
-        aspect_ratio = original_width / original_height
-        new_width = int(desired_height * aspect_ratio)
-        self.image = pygame.transform.scale(self.image, (new_width, desired_height))
-
-        self.rect = self.image.get_rect(topleft=(x, y))
+        self.type = type
         self.collected = False
-        self.flash_duration = 15  # How long the player flashes rainbow
+        self.flash_duration = 15  # Frames the player flashes after collecting
+
+        # Load and cache image
+        if type not in Powerup.image_cache:
+            raw_image = pygame.image.load(f"imgs/powerups/{type}.png").convert_alpha()
+            desired_height = 30
+            aspect_ratio = raw_image.get_width() / raw_image.get_height()
+            new_width = int(desired_height * aspect_ratio)
+            scaled_image = pygame.transform.scale(raw_image, (new_width, desired_height))
+            Powerup.image_cache[type] = scaled_image
+
+        self.image = Powerup.image_cache[type]
+        self.rect = self.image.get_rect(topleft=(x, y))
 
     def draw(self, surface):
         if not self.collected:
@@ -28,19 +34,17 @@ class Powerup:
     def check_collision(self, player):
         if not self.collected and self.rect.colliderect(player.get_hitbox()):
             self.collected = True
-            #pygame.mixer.Sound("sounds/Rise01.wav")
 
-            if (self.type == "blueberry" or self.type == "cherry"):
+            if self.type in {"blueberry", "cherry"}:
                 player.pickup_powerup(self.type)
             else:
                 player.pickup_obj(self.type)
-            
+
             player.flash_timer = self.flash_duration
             player.flash_mode = "rainbow"
-    
+
     def update(self):
-        scroll_speed = 1
-        self.x += scroll_speed
+        self.x += Powerup.scroll_speed
         self.rect.x = self.x
 
     def serialize(self):
@@ -50,14 +54,19 @@ class Powerup:
             "type": self.type,
             "collected": self.collected
         }
-    
+
     @staticmethod
     def deserialize(data):
-        powerup = Powerup(data["x"], data["y"], data["type"])
-        powerup.collected = data["collected"]
-        return powerup
+        try:
+            powerup = Powerup(data["x"], data["y"], data["type"])
+            powerup.collected = data.get("collected", False)
+            return powerup
+        except Exception as e:
+            print("Failed to deserialize powerup:", e)
+            return None
 
     def update_from_data(self, data):
-        self.x = data["x"]
-        self.y = data["y"]
-        self.collected = data["collected"]
+        self.x = data.get("x", self.x)
+        self.y = data.get("y", self.y)
+        self.rect.topleft = (self.x, self.y)
+        self.collected = data.get("collected", self.collected)
