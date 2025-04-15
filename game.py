@@ -17,10 +17,14 @@ from moviepy.editor import VideoFileClip
 # === CONFIG ===
 SERVER_HOST = '0.0.0.0'
 SERVER_PORT = 10141
-IP = "10.194.40.60"
+IP = ""
 #IP = "10.7.190.196"
 client_input = None
 client_conn = None
+
+client_ip_input = ""
+input_active = True
+thread_running = True
 
 # === INIT ===
 pygame.init()
@@ -58,6 +62,10 @@ join_game_button = None
 lobby_bg = None
 play_button = None
 
+# Client input globals
+enter_button = None
+client_input_bg = None
+
 # Game over screen globals
 winner_bg = None
 return_button = None
@@ -83,6 +91,13 @@ def setup_multiplayer_options_screen():
 
     host_game_button = Button("Host a Game", button_x, host_game_button_y, button_width, button_height, button_font)
     join_game_button = Button("Join a Game", button_x, join_game_button_y, button_width, button_height, button_font)
+
+def setup_client_input_screen():
+    global client_input_bg, enter_button
+    client_input_bg = pygame.image.load("imgs/ui/client-input-screen.png").convert()
+    button_x = (WIDTH - button_width) // 2
+    button_y = HEIGHT - 150
+    enter_button = Button("Enter", button_x, button_y, button_width, button_height, button_font)
 
 def setup_server_lobby_screen():
     global lobby_bg, play_button
@@ -137,8 +152,46 @@ def run_multiplayer_options_screen(events):
         threading.Thread(target=initialize_server, daemon=True).start()
         current_screen = "server_wait"
     elif join_game_button.is_clicked(events):
-        threading.Thread(target=initialize_client, daemon=True).start()
-        current_screen = "client_wait"
+        current_screen = "client_input"
+
+def run_client_input_screen(events):
+    global current_screen, IP, client_ip_input
+
+    screen.blit(client_input_bg, (0, 0))
+
+    # Draw input box
+    input_box = pygame.Rect(WIDTH // 2 - 150, HEIGHT - 250, 300, 50)
+    pygame.draw.rect(screen, (255, 255, 255), input_box)
+    pygame.draw.rect(screen, (0, 0, 0), input_box, 3)
+
+    # Render IP text
+    ip_surface = font.render(client_ip_input, True, (0, 0, 0))
+    screen.blit(ip_surface, (input_box.x + 10, input_box.y + 10))
+
+    # Draw button
+    mouse_pos = pygame.mouse.get_pos()
+    if enter_button.rect.collidepoint(mouse_pos):
+        pygame.mouse.set_cursor(hand_cursor)
+    else:
+        pygame.mouse.set_cursor(arrow_cursor)
+
+    enter_button.draw(screen)
+
+    for event in events:
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_BACKSPACE:
+                client_ip_input = client_ip_input[:-1]
+            elif event.key == pygame.K_RETURN:
+                IP = client_ip_input
+                threading.Thread(target=initialize_client, daemon=True).start()
+                current_screen = "client_wait"
+            else:
+                if len(client_ip_input) < 15 and event.unicode.isprintable():
+                    client_ip_input += event.unicode
+        elif enter_button.is_clicked(events):
+            IP = client_ip_input
+            threading.Thread(target=initialize_client, daemon=True).start()
+            current_screen = "client_wait"
 
 def run_server_lobby_screen(events):
     global current_screen
@@ -205,6 +258,16 @@ def display_ui(screen_path):
 
 # === SERVER / CLIENT ===
 
+def get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except:
+        return "Unavailable"
+    finally:
+        s.close()
+
 def handle_client(conn, addr):
     print(f"Client connected: {addr}")
     global client_input
@@ -250,6 +313,8 @@ def recv_exact(sock, num_bytes):
     return data
 
 def initialize_server():
+    global IP
+    IP = get_local_ip()
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.bind((SERVER_HOST, SERVER_PORT))
     server_sock.listen(1)
@@ -269,7 +334,7 @@ def initialize_client():
     client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     connected = False
 
-    while not connected:
+    while not connected and thread_running:
         try:
             client_sock.connect((IP, SERVER_PORT))
             print("Connected to server.")
@@ -277,11 +342,14 @@ def initialize_client():
             current_screen = "client_lobby"
             connected = True
         except Exception as e:
-            print("Failed to connect, retrying...", e)
+            if thread_running:
+                print("Failed to connect, retrying...", e)
             time.sleep(1)
 
     def send_input():
-        while True:
+        while thread_running:
+            if not pygame.get_init():
+                break
             keys = pygame.key.get_pressed()
             input_state = {
                 "left": keys[pygame.K_a],
@@ -290,42 +358,33 @@ def initialize_client():
                 "attack": keys[pygame.K_f]
             }
             try:
-                # Serialize the input state and send
                 payload = pickle.dumps(input_state)
                 message = b"INPUT:" + payload
                 length = len(message).to_bytes(4, 'big')
                 client_sock.sendall(length + message)
             except Exception as e:
-                print("Error sending input:", e)
+                if thread_running:
+                    print("Error sending input:", e)
                 break
-
-            time.sleep(0.02)
+            time.sleep(0.05)
 
     def receive_data():
         global current_screen, winner_player_number, scroll_x, powerups
-        while True:
+        while thread_running:
             try:
-                # Step 1: read the length prefix (4 bytes)
                 length_data = recv_exact(client_sock, 4)
                 if not length_data:
-                    print("Disconnected")
                     break
-
                 message_length = int.from_bytes(length_data, 'big')
-
-                # Step 2: read the actual message
                 message = recv_exact(client_sock, message_length)
                 if not message:
-                    print("Disconnected during message")
                     break
 
-                # Step 3: process message
                 if message.startswith(b"CMD:"):
                     command = message[4:].decode().strip()
                     if command == "SWITCH_TO_GAMEPLAY":
                         global play_intro_video
                         play_intro_video = True
-                        print("Client received command: play intro video!")
                     elif command == "PLAYER1_WINS":
                         winner_player_number = 1
                         current_screen = "winner"
@@ -336,47 +395,32 @@ def initialize_client():
                         reset_game()
                         current_screen = "client_lobby"
 
-
                 elif message.startswith(b"DATA:"):
                     try:
-                        game_state = pickle.loads(message[5:])  # skip "DATA:"
+                        game_state = pickle.loads(message[5:])
                         if isinstance(game_state, dict):
-                            # Players
                             player1.deserialize(game_state["player1"])
                             player2.deserialize(game_state["player2"])
                             player1.refresh_sprite()
                             player2.refresh_sprite()
-
-                            # Projectiles
                             player1.projectiles.clear()
                             player2.projectiles.clear()
                             for proj_data in game_state.get("projectiles", []):
-                                proj_type = proj_data.get("type", "normal")  # fallback to 'normal' if missing
-
+                                proj_type = proj_data.get("type", "normal")
                                 if proj_type == "cherry":
                                     projectile = CherryProjectile.deserialize(proj_data)
                                 else:
                                     projectile = Projectile.create_projectile_from_data(proj_data)
-
-                                # Use image_path to decide owner (optional fallback)
                                 if "bread" in proj_data.get("image_path", ""):
                                     player1.projectiles.append(projectile)
                                 else:
                                     player2.projectiles.append(projectile)
-
-                            # Conveyor belt scroll
                             scroll_x = game_state.get("scroll_x", 0)
-
-                            incoming_powerup_data = game_state.get("power_ups", [])
                             powerups.clear()
-                            for powerup_data in incoming_powerup_data:
+                            for powerup_data in game_state.get("power_ups", []):
                                 powerup = Powerup.deserialize(powerup_data)
                                 if powerup:
                                     powerups.append(powerup)
-
-
-
-                            # Platforms
                             incoming_platform_data = game_state.get("platforms", [])
                             for i, platform_data in enumerate(incoming_platform_data):
                                 if i < len(platforms):
@@ -384,22 +428,21 @@ def initialize_client():
                                     platforms[i].rect.y = platform_data["y"]
                                 else:
                                     platforms.append(Platform.deserialize(platform_data))
-
                     except Exception as e:
-                        print("Error:", e)
+                        if thread_running:
+                            print("Deserialization Error:", e)
                         break
                 else:
-                    print("Unknown message type:", message)
-
+                    if thread_running:
+                        print("Unknown message type:", message)
             except Exception as e:
-                print("Error:", e)
+                if thread_running:
+                    print("Receive thread error:", e)
                 break
-
         client_sock.close()
 
-
-    threading.Thread(target=receive_data, daemon=True).start()
-    threading.Thread(target=send_input, daemon=True).start()
+    threading.Thread(target=receive_data).start()
+    threading.Thread(target=send_input).start()
 
 def reset_game():
     player1.reset_state()
@@ -657,12 +700,24 @@ while running:
     for event in events:
         if event.type == pygame.QUIT:
             running = False
+        elif event.type == pygame.KEYDOWN and current_screen == "client_wait" and input_active:
+            if event.key == pygame.K_BACKSPACE:
+                client_ip_input = client_ip_input[:-1]
+            elif event.key == pygame.K_RETURN:
+                IP = client_ip_input  # ← Use this IP when connecting
+                threading.Thread(target=initialize_client, daemon=True).start()
+            else:
+                if len(client_ip_input) < 15:
+                    client_ip_input += event.unicode
+
 
     if current_screen != previous_screen:
         if current_screen == "title":
             setup_title_screen()
         elif current_screen == "multiplayer_options":
             setup_multiplayer_options_screen()
+        elif current_screen == "client_input":
+            setup_client_input_screen()
         elif current_screen == "server_lobby":
             setup_server_lobby_screen()
         elif current_screen == "winner":
@@ -678,8 +733,13 @@ while running:
         run_multiplayer_options_screen(events)
     elif current_screen == "server_wait":
         display_ui("imgs/ui/server-waiting-screen.png")
+        ip_text = font.render(f"Your IP: {IP}", True, (235, 153, 176))
+        text_rect = ip_text.get_rect()
+        screen.blit(ip_text, (WIDTH - text_rect.width - 20, HEIGHT - text_rect.height - 20))
     elif current_screen == "client_wait":
         display_ui("imgs/ui/client-waiting-screen.png")
+    elif current_screen == "client_input":
+        run_client_input_screen(events)
     elif current_screen == "server_lobby":
         run_server_lobby_screen(events)
     elif current_screen == "client_lobby":
@@ -695,5 +755,6 @@ while running:
     clock.tick(60)
 
 pygame.mouse.set_cursor(arrow_cursor)
+thread_running = False
 pygame.quit()
 sys.exit()

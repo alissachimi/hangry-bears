@@ -94,7 +94,7 @@ class CherryProjectile:
 
     def serialize(self):
         return {
-            "type": "cherry",  # crucial for the client to identify it
+            "type": "cherry",
             "x": self.rect.centerx,
             "y": self.rect.centery,
             "timer": self.timer,
@@ -117,7 +117,5 @@ class CherryProjectile:
         obj.explosion_frame = data["explosion_frame"]
         obj.explosion_tick = data["explosion_tick"]
         obj.show_explosion = data["show_explosion"]
-        #print("Deserialized cherry:", data)
-        obj.explosion_rect = obj.explosion_frames[0].get_rect(center=obj.rect.center)
 
         return obj

@@ -4,21 +4,29 @@ from cherry_bomb import CherryProjectile
 
 WIDTH, HEIGHT = 1000, 600
 GROUND_Y = HEIGHT - 250
+sprite_cache = {}
 
 # Load and process spritesheets
 def load_frames(path):
+    if path in sprite_cache:
+        return sprite_cache[path]
+    
     spritesheet = pygame.image.load(path).convert_alpha()
     frame_w = spritesheet.get_width() // 10
     frame_h = spritesheet.get_height()
     desired_w = int(frame_w * 0.2)
     desired_h = int(frame_h * 0.2)
-    return [
+
+    frames = [
         pygame.transform.smoothscale(
             spritesheet.subsurface(pygame.Rect(i * frame_w, 0, frame_w, frame_h)),
             (desired_w, desired_h)
         )
         for i in range(10)
     ]
+    sprite_cache[path] = frames
+    return frames
+
 
 # Player class
 class Player:
@@ -353,9 +361,11 @@ class Player:
             spritesheet_url=f"imgs/spritesheets/{str(powerup).upper()}_angry_{self.name}_bear_spritesheet.png"
         else:
             spritesheet_url=f"imgs/spritesheets/{str(powerup).upper()}_{self.name}_bear_spritesheet.png"
-        powerup_frames = load_frames(spritesheet_url)
+        self.frames = sprite_cache.get(spritesheet_url)
+        if not self.frames:
+            print(f"[WARN] Sprite not preloaded: {spritesheet_url}")
+            self.frames = load_frames(spritesheet_url)
 
-        self.frames = powerup_frames
         self.projectile_image=f"imgs\powerups\{powerup}-ammo.png"
         self.weapon="gun"
         self.attack_frames = {"left": [1, 0], "right": [6, 5]}
@@ -452,14 +462,17 @@ class Player:
         self.powerup_timer = data.get("powerup_timer", 0)
 
         # Detect powerup change and update only if necessary
-        incoming_powerup = data.get("powerup", None)
-        if incoming_powerup != self.last_powerup:
-            self.last_powerup = incoming_powerup
-            self.powerup = incoming_powerup
-            if incoming_powerup in ("cherry", "blueberry"):
-                self.apply_powerup_sprite(incoming_powerup)
-            else:
-                self.frames = self.default_frames  # fallback
+        # Always set powerup
+        self.powerup = data.get("powerup", None)
+
+        # Always re-apply correct sprite if powerup or hangry status changed
+        if self.powerup in ("cherry", "blueberry"):
+            self.apply_powerup_sprite(self.powerup)
+        elif self.is_hangry:
+            self.enter_hangry_mode()
+        else:
+            self.exit_hangry_mode()
+
         self.tick += 1
         self.refresh_sprite()
 
@@ -468,7 +481,11 @@ class Player:
             spritesheet_url = f"imgs/spritesheets/{powerup.upper()}_angry_{self.name}_bear_spritesheet.png"
         else:
             spritesheet_url = f"imgs/spritesheets/{powerup.upper()}_{self.name}_bear_spritesheet.png"
-        self.frames = load_frames(spritesheet_url)
+        self.frames = sprite_cache.get(spritesheet_url)
+        if not self.frames:
+            print(f"[WARN] Sprite not preloaded: {spritesheet_url}")
+            self.frames = load_frames(spritesheet_url)
+
         self.projectile_image = f"imgs/powerups/{powerup}-ammo.png"
         self.weapon = "gun"
         self.attack_frames = {"left": [1, 0], "right": [6, 5]}
