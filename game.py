@@ -194,7 +194,7 @@ def run_client_input_screen(events):
             current_screen = "client_wait"
 
 def run_server_lobby_screen(events):
-    global current_screen
+    global current_screen, played_video
     screen.blit(lobby_bg, (0, 0))
 
     mouse_pos = pygame.mouse.get_pos()
@@ -213,7 +213,9 @@ def run_server_lobby_screen(events):
                 client_conn.sendall(length + command)
             except:
                 print("Failed to send mode switch to client.")
-        #play_video("imgs/main.mp4")
+        if played_video == False:
+            play_video("imgs/main.mp4")
+            played_video = True
         current_screen = "server_gameplay"
             
 
@@ -369,7 +371,7 @@ def initialize_client():
             time.sleep(0.05)
 
     def receive_data():
-        global current_screen, winner_player_number, scroll_x, powerups
+        global current_screen, winner_player_number, scroll_x, powerups, played_video
         while thread_running:
             try:
                 length_data = recv_exact(client_sock, 4)
@@ -383,8 +385,7 @@ def initialize_client():
                 if message.startswith(b"CMD:"):
                     command = message[4:].decode().strip()
                     if command == "SWITCH_TO_GAMEPLAY":
-                        global play_intro_video
-                        play_intro_video = True
+                        current_screen = "video"
                     elif command == "PLAYER1_WINS":
                         winner_player_number = 1
                         current_screen = "winner"
@@ -411,11 +412,7 @@ def initialize_client():
                                     projectile = CherryProjectile.deserialize(proj_data)
                                 else:
                                     projectile = Projectile.create_projectile_from_data(proj_data)
-                                if "bread" in proj_data.get("image_path", ""):
-                                    player1.projectiles.append(projectile)
-                                else:
-                                    player2.projectiles.append(projectile)
-                            scroll_x = game_state.get("scroll_x", 0)
+                                player1.projectiles.append(projectile)
                             powerups.clear()
                             for powerup_data in game_state.get("power_ups", []):
                                 powerup = Powerup.deserialize(powerup_data)
@@ -450,7 +447,7 @@ def reset_game():
 
 # === GAME SETUP ===
 
-play_intro_video = False
+played_video = False
 
 def play_video(video_path):
     clip = VideoFileClip(video_path)
@@ -692,11 +689,6 @@ def run_server_gameplay_loop(events):
 while running:
     events = pygame.event.get()
 
-    if play_intro_video:
-        #play_video("imgs/main.mp4")
-        play_intro_video = False
-        current_screen = "client_gameplay"
-
     for event in events:
         if event.type == pygame.QUIT:
             running = False
@@ -750,6 +742,11 @@ while running:
         run_client_gameplay_loop(events)
     elif current_screen == "winner":
         run_winner_screen(events)
+    elif current_screen == "video":
+        if played_video == False:
+            play_video("imgs/main.mp4")
+            played_video = True
+        current_screen = "client_gameplay"
 
     pygame.display.update()
     clock.tick(60)

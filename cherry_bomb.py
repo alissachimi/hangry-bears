@@ -70,7 +70,7 @@ class CherryProjectile:
         if self.visible and not self.exploded:
             print("Drawing cherry bomb at", self.rect.topleft)
             surface.blit(self.image, self.rect.topleft)
-        elif self.show_explosion and self.explosion_frame < len(self.explosion_frames):
+        elif self.show_explosion and self.explosion_frame < 5:
             print("Drawing explosion frame", self.explosion_frame)
             surface.blit(self.explosion_frames[self.explosion_frame], self.explosion_rect.topleft)
 

@@ -382,7 +382,6 @@ class Player:
             self.inc_health(10)
 
             # health bar updates in game loop
-
             
     def refresh_sprite(self):
         if self.state == "walking":
